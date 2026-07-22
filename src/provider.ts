@@ -8,6 +8,13 @@ import {
   formatModelName,
   orderModels,
 } from "./models";
+import {
+  DEFAULT_REASONING_EFFORT,
+  applyReasoningEffort,
+  buildModelConfigurationSchema,
+  resolveReasoningEffort,
+  type ReasoningEffort,
+} from "./model-options";
 import { ChatCompletionStreamParser, type ChatStreamEvent } from "./sse";
 import { toProviderUsagePayload } from "./usage";
 
@@ -95,6 +102,10 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
       }
     }
 
+    const defaultEffort = resolveReasoningEffort(
+      undefined,
+      this.configuration.get("reasoningEffort", DEFAULT_REASONING_EFFORT),
+    );
     return this.models.map((id) => ({
       id,
       rawModelId: id,
@@ -107,6 +118,7 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
       maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
       isUserSelectable: true,
       requiresAuthorization: apiKey ? undefined : { label: "Configure Poolside API key" },
+      configurationSchema: buildModelConfigurationSchema(defaultEffort),
       capabilities: {
         imageInput: false,
         toolCalling: true,
@@ -122,13 +134,17 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     token: vscode.CancellationToken,
   ): Promise<void> {
     const apiKey = await this.requireApiKey(true);
-    const requestBody = buildRequest(model.rawModelId, messages, options);
+    const reasoningEffort = resolveReasoningEffort(
+      options.modelConfiguration,
+      this.configuration.get("reasoningEffort", DEFAULT_REASONING_EFFORT),
+    );
+    const requestBody = buildRequest(model.rawModelId, messages, options, reasoningEffort);
     const response = await this.sendRequest(apiKey, requestBody, token);
     if (!response.ok) throw await apiError(`Poolside request failed for ${model.rawModelId}`, response);
     if (!response.body) throw new Error("Poolside returned an empty response stream");
 
     if (this.debugLogging) {
-      this.output.appendLine(`[request] model=${model.rawModelId} initiator=${options.requestInitiator ?? "unknown"}`);
+      this.output.appendLine(`[request] model=${model.rawModelId} effort=${reasoningEffort} initiator=${options.requestInitiator ?? "unknown"}`);
     }
 
     const parser = new ChatCompletionStreamParser();
@@ -157,11 +173,15 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     return Math.max(1, Math.ceil(text.length / 4));
   }
 
-  async testConnection(): Promise<{ model: string; text: string }> {
+  async testConnection(): Promise<{ model: string; reasoningEffort: ReasoningEffort; text: string }> {
     const apiKey = await this.requireApiKey(false);
     const model = this.models.includes("poolside/laguna-xs-2.1")
       ? "poolside/laguna-xs-2.1"
       : this.models[0] ?? FALLBACK_MODELS[0];
+    const reasoningEffort = resolveReasoningEffort(
+      undefined,
+      this.configuration.get("reasoningEffort", DEFAULT_REASONING_EFFORT),
+    );
     const response = await fetch(`${API_BASE}/chat/completions`, {
       method: "POST",
       headers: this.requestHeaders(apiKey, "application/json"),
@@ -169,12 +189,13 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
         model,
         messages: [{ role: "user", content: "Reply with exactly: Poolside connection verified" }],
         max_completion_tokens: 512,
+        reasoning: { effort: reasoningEffort },
         stream: false,
       }),
     });
     if (!response.ok) throw await apiError("Poolside connection test failed", response);
     const body = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    return { model, text: body.choices?.[0]?.message?.content?.trim() ?? "(empty response)" };
+    return { model, reasoningEffort, text: body.choices?.[0]?.message?.content?.trim() ?? "(empty response)" };
   }
 
   private async fetchModels(apiKey: string): Promise<string[]> {
@@ -265,6 +286,7 @@ function buildRequest(
   model: string,
   messages: readonly vscode.LanguageModelChatRequestMessage[],
   options: vscode.ProvideLanguageModelChatResponseOptions,
+  reasoningEffort: ReasoningEffort,
 ): Record<string, unknown> {
   const maxTokens = vscode.workspace
     .getConfiguration("poolsideCopilot")
@@ -277,14 +299,14 @@ function buildRequest(
       parameters: sanitizeSchema(tool.inputSchema),
     },
   }));
-  return {
+  return applyReasoningEffort({
     model,
     messages: normalizeMessages(messages.flatMap(convertMessage)),
     stream: true,
     stream_options: { include_usage: true },
     max_completion_tokens: maxTokens,
     ...(tools.length ? { tools, tool_choice: toolMode(options.toolMode), parallel_tool_calls: true } : {}),
-  };
+  }, reasoningEffort);
 }
 
 function convertMessage(message: vscode.LanguageModelChatRequestMessage): ApiMessage[] {

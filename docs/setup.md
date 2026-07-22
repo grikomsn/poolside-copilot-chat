@@ -34,6 +34,7 @@ The extension validates the key with `https://inference.poolside.ai/v1/models` b
 
 | Setting | Default | Purpose |
 | --- | ---: | --- |
+| `poolsideCopilot.reasoningEffort` | `high` | Default reasoning effort; a Copilot model-picker selection overrides it |
 | `poolsideCopilot.maxOutputTokens` | `32768` | Maximum output tokens requested from Poolside |
 | `poolsideCopilot.requestTimeoutSeconds` | `600` | Inference request timeout in seconds |
 | `poolsideCopilot.debugLogging` | `false` | Log request, stream, usage, and model-discovery metadata to the Poolside output channel |
