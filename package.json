@@ -69,6 +69,27 @@
     "configuration": {
       "title": "Poolside for Copilot Chat",
       "properties": {
+        "poolsideCopilot.reasoningEffort": {
+          "type": "string",
+          "enum": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ],
+          "default": "high",
+          "enumDescriptions": [
+            "Disable additional reasoning",
+            "Use the smallest available reasoning budget",
+            "Faster responses with lighter reasoning",
+            "Balance response speed and reasoning depth",
+            "Use deeper reasoning for complex coding tasks",
+            "Use the highest available reasoning effort"
+          ],
+          "description": "Default Poolside reasoning effort. A Copilot model-picker selection overrides this value."
+        },
         "poolsideCopilot.maxOutputTokens": {
           "type": "number",
           "default": 32768,

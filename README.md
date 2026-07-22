@@ -21,6 +21,7 @@ This extension is a native VS Code `LanguageModelChatProvider`. It validates a u
 - API keys stored in VS Code Secret Storage
 - Live hosted-model discovery with sensible Laguna fallbacks
 - Streaming text and model reasoning
+- Configurable reasoning effort in the Copilot model picker (`none`, `minimal`, `low`, `medium`, `high`, or `xhigh`)
 - Agent mode function-tool calls
 - Native VS Code context-window accounting from Poolside usage data
 - No proxy, bundled server, or third-party relay
@@ -33,6 +34,8 @@ This extension is a native VS Code `LanguageModelChatProvider`. It validates a u
 4. Open Copilot Chat, select **Manage Models**, enable **Poolside**, then choose an available Laguna model.
 
 Use **Poolside: Manage Connection** to test inference, refresh hosted models, replace or remove the key, inspect logs, or create a diagnostic snapshot.
+
+Choose a reasoning level from the model configuration control in Copilot Chat. The selection applies to that request and overrides the `poolsideCopilot.reasoningEffort` workspace default.
 
 Poolside's hosted Laguna models are currently text-only. Image attachments are disabled; prompts, tool definitions, tool results, and conversation context selected by Copilot Chat are sent directly to Poolside for inference.
 

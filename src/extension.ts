@@ -16,6 +16,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     output,
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("poolsideCopilot.reasoningEffort")) provider.fireDidChange();
+    }),
     vscode.lm.registerLanguageModelChatProvider("poolside", provider),
     vscode.commands.registerCommand("poolsideCopilot.manage", () => manage(auth, provider, output)),
     vscode.commands.registerCommand("poolsideCopilot.configureApiKey", () => configureApiKey(provider, output)),
@@ -127,8 +130,10 @@ async function testConnection(provider: PoolsideProvider, output: vscode.OutputC
       { location: vscode.ProgressLocation.Notification, title: "Testing Poolside inference…" },
       () => provider.testConnection(),
     );
-    output.appendLine(`[test] model=${result.model} response=${result.text}`);
-    vscode.window.showInformationMessage(`Poolside verified with ${result.model}: ${result.text}`);
+    output.appendLine(`[test] model=${result.model} effort=${result.reasoningEffort} response=${result.text}`);
+    vscode.window.showInformationMessage(
+      `Poolside verified with ${result.model} (${result.reasoningEffort} effort): ${result.text}`,
+    );
   } catch (error) {
     const message = messageOf(error);
     output.appendLine(`[test] ${message}`);
@@ -149,6 +154,7 @@ async function diagnostics(auth: PoolsideAuth, output: vscode.OutputChannel): Pr
     `- VS Code: ${vscode.version}`,
     `- API endpoint: ${API_BASE}`,
     `- API key: ${(await auth.hasApiKey()) ? "configured in Secret Storage" : "missing"}`,
+    `- Default reasoning effort: ${vscode.workspace.getConfiguration("poolsideCopilot").get("reasoningEffort", "high")}`,
     `- Registered models: ${models.length}`,
     "",
     ...models.map((model) => `- ${model.id} (${model.maxInputTokens} input tokens)`),
