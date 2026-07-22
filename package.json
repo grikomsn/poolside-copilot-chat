@@ -1,0 +1,120 @@
+{
+  "name": "poolside-copilot-chat",
+  "displayName": "Poolside for GitHub Copilot Chat",
+  "description": "Use hosted Poolside coding models in GitHub Copilot Chat with your Poolside API key.",
+  "version": "0.0.1",
+  "publisher": "grikomsn",
+  "icon": "assets/icon.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/grikomsn/poolside-copilot-chat.git"
+  },
+  "bugs": {
+    "url": "https://github.com/grikomsn/poolside-copilot-chat/issues"
+  },
+  "homepage": "https://github.com/grikomsn/poolside-copilot-chat#readme",
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "poolside",
+    "laguna",
+    "copilot",
+    "copilot-chat",
+    "api-key",
+    "language-model"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguageModelChatProvider:poolside"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "poolsideCopilot.manage",
+        "title": "Poolside: Manage Connection"
+      },
+      {
+        "command": "poolsideCopilot.configureApiKey",
+        "title": "Poolside: Configure API Key"
+      },
+      {
+        "command": "poolsideCopilot.removeApiKey",
+        "title": "Poolside: Remove API Key"
+      },
+      {
+        "command": "poolsideCopilot.refreshModels",
+        "title": "Poolside: Refresh Models"
+      },
+      {
+        "command": "poolsideCopilot.testConnection",
+        "title": "Poolside: Test Connection"
+      },
+      {
+        "command": "poolsideCopilot.openApiKeys",
+        "title": "Poolside: Open API Keys"
+      },
+      {
+        "command": "poolsideCopilot.diagnostics",
+        "title": "Poolside: Show Diagnostics"
+      }
+    ],
+    "configuration": {
+      "title": "Poolside for Copilot Chat",
+      "properties": {
+        "poolsideCopilot.maxOutputTokens": {
+          "type": "number",
+          "default": 32768,
+          "minimum": 1,
+          "maximum": 65536,
+          "description": "Maximum output tokens requested from Poolside hosted models."
+        },
+        "poolsideCopilot.requestTimeoutSeconds": {
+          "type": "number",
+          "default": 600,
+          "minimum": 10,
+          "description": "Maximum duration of a Poolside inference request in seconds."
+        },
+        "poolsideCopilot.debugLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log request, stream, usage, and model-discovery metadata to the Poolside output channel. Prompts and API keys are never logged."
+        }
+      }
+    },
+    "languageModelChatProviders": [
+      {
+        "vendor": "poolside",
+        "displayName": "Poolside",
+        "managementCommand": "poolsideCopilot.manage"
+      }
+    ]
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('out',{recursive:true,force:true})\"",
+    "compile": "npm run clean && tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node --test \"out/**/*.test.js\"",
+    "check": "npm test",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "npm run check && vsce publish --skip-duplicate",
+    "prepackage": "npm run check",
+    "package": "vsce package",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.0",
+    "@types/node": "^24.0.0",
+    "@types/vscode": "^1.125.0",
+    "@vscode/vsce": "^3.9.2",
+    "typescript": "^6.0.3"
+  }
+}

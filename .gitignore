@@ -1,0 +1,10 @@
+node_modules/
+out/
+*.vsix
+.DS_Store
+coverage/
+.env
+.env.*
+!.env.example
+tmp/
+assets/Poolside*
