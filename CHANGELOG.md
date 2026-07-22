@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.2
+
+### Patch Changes
+
+- 32fbdad: Add configurable Poolside reasoning effort in the Copilot model picker and workspace settings.
+
 ## 0.0.1
 
 - Add the Poolside hosted-model provider for GitHub Copilot Chat.
