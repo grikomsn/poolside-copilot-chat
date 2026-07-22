@@ -45,4 +45,9 @@ Poolside's hosted Laguna models are currently text-only. Image attachments are d
 - [API key and security model](https://github.com/grikomsn/poolside-copilot-chat/blob/main/docs/security.md)
 - [Development and releases](https://github.com/grikomsn/poolside-copilot-chat/blob/main/docs/development.md)
 
+## Related projects
+
+- [Grok for GitHub Copilot Chat](https://github.com/grikomsn/grok-copilot-chat) — Use xAI Grok models directly from the GitHub Copilot Chat model picker.
+- [Codex Bridge for Copilot Chat](https://github.com/grikomsn/openai-oauth-copilot-chat) — Use OpenAI Codex models in Copilot Chat with a ChatGPT Plus or Pro subscription.
+
 Unofficial project; not affiliated with Poolside, GitHub, or Microsoft. Poolside account limits and charges still apply. Licensed under [MIT](LICENSE).
