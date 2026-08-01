@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.3
+
+### Patch Changes
+
+- 8861e79: Use per-model Poolside context and output-token metadata, including upstream `/models` limits when available, for more accurate Copilot model information.
+
 ## 0.0.2
 
 ### Patch Changes
