@@ -3,10 +3,13 @@ import { PoolsideAuth } from "./auth";
 import { messageOf } from "./errors";
 import {
   DEFAULT_MAX_OUTPUT_TOKENS,
+  FALLBACK_MODEL_METADATA,
   FALLBACK_MODELS,
-  MAX_INPUT_TOKENS,
+  formatTokenLimit,
   formatModelName,
-  orderModels,
+  orderModelMetadata,
+  type PoolsideApiModel,
+  type PoolsideModelMetadata,
 } from "./models";
 import {
   DEFAULT_REASONING_EFFORT,
@@ -40,7 +43,7 @@ interface ApiToolCall {
 export class PoolsideProvider implements vscode.LanguageModelChatProvider<PoolsideModel> {
   private readonly changeEmitter = new vscode.EventEmitter<void>();
   readonly onDidChangeLanguageModelChatInformation = this.changeEmitter.event;
-  private models: string[] = [...FALLBACK_MODELS];
+  private models: PoolsideModelMetadata[] = [...FALLBACK_MODEL_METADATA];
   private lastModelRefreshAt = 0;
 
   private get configuration(): vscode.WorkspaceConfiguration {
@@ -67,12 +70,12 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     this.models = models;
     this.lastModelRefreshAt = Date.now();
     this.changeEmitter.fire();
-    return models;
+    return models.map(({ id }) => id);
   }
 
   async clearApiKey(): Promise<void> {
     await this.auth.clearApiKey();
-    this.models = [...FALLBACK_MODELS];
+    this.models = [...FALLBACK_MODEL_METADATA];
     this.lastModelRefreshAt = 0;
     this.changeEmitter.fire();
   }
@@ -83,7 +86,7 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     this.models = models;
     this.lastModelRefreshAt = Date.now();
     this.changeEmitter.fire();
-    return models;
+    return models.map(({ id }) => id);
   }
 
   async provideLanguageModelChatInformation(
@@ -106,16 +109,16 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
       undefined,
       this.configuration.get("reasoningEffort", DEFAULT_REASONING_EFFORT),
     );
-    return this.models.map((id) => ({
-      id,
-      rawModelId: id,
-      name: formatModelName(id),
+    return this.models.map((metadata) => ({
+      id: metadata.id,
+      rawModelId: metadata.id,
+      name: formatModelName(metadata.id),
       family: "poolside-laguna",
-      version: "1.0.0",
+      version: metadata.version,
       detail: apiKey ? "Poolside Platform" : "Poolside API key required",
-      tooltip: `${id} via the hosted Poolside API · 256K context · text only`,
-      maxInputTokens: MAX_INPUT_TOKENS,
-      maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
+      tooltip: `${metadata.id} via the hosted Poolside API · ${formatTokenLimit(metadata.contextLength)} context · ${formatTokenLimit(metadata.maxOutputTokens)} max output · text only`,
+      maxInputTokens: metadata.contextLength,
+      maxOutputTokens: metadata.maxOutputTokens,
       isUserSelectable: true,
       requiresAuthorization: apiKey ? undefined : { label: "Configure Poolside API key" },
       configurationSchema: buildModelConfigurationSchema(defaultEffort),
@@ -175,9 +178,9 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
 
   async testConnection(): Promise<{ model: string; reasoningEffort: ReasoningEffort; text: string }> {
     const apiKey = await this.requireApiKey(false);
-    const model = this.models.includes("poolside/laguna-xs-2.1")
+    const model = this.models.some(({ id }) => id === "poolside/laguna-xs-2.1")
       ? "poolside/laguna-xs-2.1"
-      : this.models[0] ?? FALLBACK_MODELS[0];
+      : this.models[0]?.id ?? FALLBACK_MODELS[0];
     const reasoningEffort = resolveReasoningEffort(
       undefined,
       this.configuration.get("reasoningEffort", DEFAULT_REASONING_EFFORT),
@@ -198,16 +201,16 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     return { model, reasoningEffort, text: body.choices?.[0]?.message?.content?.trim() ?? "(empty response)" };
   }
 
-  private async fetchModels(apiKey: string): Promise<string[]> {
+  private async fetchModels(apiKey: string): Promise<PoolsideModelMetadata[]> {
     if (!apiKey) throw new Error("Poolside API key is not configured");
     const response = await fetch(`${API_BASE}/models`, {
       headers: this.requestHeaders(apiKey, "application/json, application/problem+json"),
     });
     if (!response.ok) throw await apiError("Unable to list Poolside models", response);
-    const body = (await response.json()) as { data?: Array<{ id?: string }> };
-    const models = orderModels((body.data ?? []).flatMap((model) => model.id ? [model.id] : []));
+    const body = (await response.json()) as { data?: PoolsideApiModel[] };
+    const models = orderModelMetadata(body.data ?? []);
     if (!models.length) throw new Error("Poolside returned no chat-capable models");
-    if (this.debugLogging) this.output.appendLine(`[models] ${models.join(", ")}`);
+    if (this.debugLogging) this.output.appendLine(`[models] ${models.map(({ id }) => id).join(", ")}`);
     return models;
   }
 
