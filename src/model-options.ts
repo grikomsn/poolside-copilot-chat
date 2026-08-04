@@ -5,6 +5,7 @@ export const REASONING_EFFORTS = [
   "medium",
   "high",
   "xhigh",
+  "max",
 ] as const;
 
 export type ReasoningEffort = typeof REASONING_EFFORTS[number];
@@ -46,7 +47,18 @@ export function applyReasoningEffort(
   body: Readonly<Record<string, unknown>>,
   effort: ReasoningEffort,
 ): Record<string, unknown> {
-  return { ...body, reasoning: { effort } };
+  // The Poolside Platform API controls thinking via chat_template_kwargs.enable_thinking
+  // (a boolean on/off). The OpenRouter-style reasoning.effort field is also included so
+  // the same request body works with OpenRouter-compatible providers that accept it.
+  //   "none" disables thinking on the Poolside Platform (enable_thinking=false) and
+  //           requests no reasoning on OpenRouter (effort="none").
+  //   All other values leave thinking enabled by default (the Poolide Platform default)
+  //   and pass the fine-grained effort to OpenRouter-style providers.
+  const result: Record<string, unknown> = { ...body, reasoning: { effort } };
+  if (effort === "none") {
+    result.chat_template_kwargs = { enable_thinking: false };
+  }
+  return result;
 }
 
 function isReasoningEffort(value: unknown): value is ReasoningEffort {
@@ -64,11 +76,12 @@ function formatEffortLabel(value: ReasoningEffort): string {
 
 function effortDescription(value: ReasoningEffort): string {
   switch (value) {
-    case "none": return "Disable additional reasoning";
+    case "none": return "Disable reasoning and thinking";
     case "minimal": return "Use the smallest available reasoning budget";
     case "low": return "Faster responses with lighter reasoning";
     case "medium": return "Balance response speed and reasoning depth";
     case "high": return "Use deeper reasoning for complex coding tasks";
-    case "xhigh": return "Use the highest available reasoning effort";
+    case "xhigh": return "Use a very high reasoning effort";
+    case "max": return "Use the highest available reasoning effort";
   }
 }

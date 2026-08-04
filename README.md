@@ -21,7 +21,7 @@ This extension is a native VS Code `LanguageModelChatProvider`. It validates a u
 - API keys stored in VS Code Secret Storage
 - Live hosted-model discovery with sensible Laguna fallbacks
 - Streaming text and model reasoning
-- Configurable reasoning effort in the Copilot model picker (`none`, `minimal`, `low`, `medium`, `high`, or `xhigh`)
+- Configurable reasoning effort in the Copilot model picker (`none`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`)
 - Agent mode function-tool calls
 - Native VS Code context-window accounting from Poolside usage data
 - No proxy, bundled server, or third-party relay

@@ -32,7 +32,7 @@ Tests are colocated as `src/*.test.ts`.
 - Keep requests direct to `https://inference.poolside.ai/v1` with bearer authentication.
 - Store API keys only in VS Code Secret Storage. Never log keys or prompt contents.
 - Preserve cancellation, request timeouts, SSE fragmentation handling, tool calls, reasoning parts, and usage reporting.
-- Reasoning effort uses `reasoning: { effort }`. Supported values are `none`, `minimal`, `low`, `medium`, `high`, and `xhigh`.
+- Reasoning effort sends an OpenRouter-style `reasoning: { effort }` field and, when effort is `none`, also sets `chat_template_kwargs.enable_thinking` to `false` for the Poolside Platform API. Supported values are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`.
 - A valid per-request `modelConfiguration.reasoningEffort` overrides the workspace default.
 - Keep public settings in `package.json` aligned with runtime defaults, picker schemas, tests, README, and `docs/setup.md`.
 - Keep packaged runtime code under `out/`; source, tests, maps, docs, secrets, and repository automation must remain excluded by `.vscodeignore`.
