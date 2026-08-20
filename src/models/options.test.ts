@@ -6,7 +6,7 @@ import {
   applyReasoningEffort,
   buildModelConfigurationSchema,
   resolveReasoningEffort,
-} from "./model-options";
+} from "./options";
 
 test("exposes every Poolside reasoning effort in a native model-picker control", () => {
   const schema = buildModelConfigurationSchema("minimal");
@@ -18,6 +18,7 @@ test("exposes every Poolside reasoning effort in a native model-picker control",
     "Medium",
     "High",
     "Extra High",
+    "Max",
   ]);
   assert.equal(schema.properties.reasoningEffort.default, "minimal");
   assert.equal(schema.properties.reasoningEffort.group, "navigation");
@@ -25,7 +26,9 @@ test("exposes every Poolside reasoning effort in a native model-picker control",
 
 test("per-request effort overrides the workspace default", () => {
   assert.equal(resolveReasoningEffort({ reasoningEffort: "low" }, "medium"), "low");
+  assert.equal(resolveReasoningEffort({ thinkingEffort: "medium" }, "low"), "medium");
   assert.equal(resolveReasoningEffort(undefined, "xhigh"), "xhigh");
+  assert.equal(resolveReasoningEffort({ reasoningEffort: "max" }, "high"), "max");
 });
 
 test("invalid effort safely falls back to high", () => {
@@ -33,13 +36,20 @@ test("invalid effort safely falls back to high", () => {
   assert.equal(resolveReasoningEffort(undefined, "invalid"), DEFAULT_REASONING_EFFORT);
 });
 
-test("applies the documented OpenRouter-style reasoning object", () => {
+test("applies OpenRouter-style reasoning with Poolside thinking toggle", () => {
+  // "none" disables thinking on the Poolside Platform and sends no reasoning on OpenRouter
   assert.deepEqual(applyReasoningEffort({ model: "poolside/laguna-m.1" }, "none"), {
     model: "poolside/laguna-m.1",
     reasoning: { effort: "none" },
+    chat_template_kwargs: { enable_thinking: false },
   });
+  // Non-"none" levels keep thinking enabled by default and forward the effort value
   assert.deepEqual(applyReasoningEffort({ model: "poolside/laguna-m.1" }, "xhigh"), {
     model: "poolside/laguna-m.1",
     reasoning: { effort: "xhigh" },
+  });
+  assert.deepEqual(applyReasoningEffort({ model: "poolside/laguna-m.1" }, "max"), {
+    model: "poolside/laguna-m.1",
+    reasoning: { effort: "max" },
   });
 });

@@ -5,6 +5,7 @@ export const REASONING_EFFORTS = [
   "medium",
   "high",
   "xhigh",
+  "max",
 ] as const;
 
 export type ReasoningEffort = typeof REASONING_EFFORTS[number];
@@ -16,6 +17,7 @@ export function resolveReasoningEffort(
   workspaceDefault: unknown,
 ): ReasoningEffort {
   const requested = stringOption(requestConfiguration, "reasoningEffort")
+    ?? stringOption(requestConfiguration, "thinkingEffort")
     ?? (typeof workspaceDefault === "string" ? workspaceDefault : undefined);
   return isReasoningEffort(requested) ? requested : DEFAULT_REASONING_EFFORT;
 }
@@ -46,7 +48,14 @@ export function applyReasoningEffort(
   body: Readonly<Record<string, unknown>>,
   effort: ReasoningEffort,
 ): Record<string, unknown> {
-  return { ...body, reasoning: { effort } };
+  // Poolside controls native thinking with chat_template_kwargs.enable_thinking.
+  // Preserve the OpenRouter-style reasoning field for compatible endpoints while
+  // translating the shared "none" picker value to Poolside's native switch.
+  const result: Record<string, unknown> = { ...body, reasoning: { effort } };
+  if (effort === "none") {
+    result.chat_template_kwargs = { enable_thinking: false };
+  }
+  return result;
 }
 
 function isReasoningEffort(value: unknown): value is ReasoningEffort {
@@ -64,11 +73,12 @@ function formatEffortLabel(value: ReasoningEffort): string {
 
 function effortDescription(value: ReasoningEffort): string {
   switch (value) {
-    case "none": return "Disable additional reasoning";
+    case "none": return "Disable reasoning and thinking";
     case "minimal": return "Use the smallest available reasoning budget";
     case "low": return "Faster responses with lighter reasoning";
     case "medium": return "Balance response speed and reasoning depth";
     case "high": return "Use deeper reasoning for complex coding tasks";
-    case "xhigh": return "Use the highest available reasoning effort";
+    case "xhigh": return "Use a very high reasoning effort";
+    case "max": return "Use the highest available reasoning effort";
   }
 }

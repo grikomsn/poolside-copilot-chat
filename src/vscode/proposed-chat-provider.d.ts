@@ -10,6 +10,7 @@ declare module "vscode" {
     readonly isUserSelectable?: boolean;
     readonly configurationSchema?: LanguageModelConfigurationSchema;
     readonly targetChatSessionType?: string;
+    readonly isBYOK?: boolean;
   }
 
   export interface LanguageModelChatCapabilities {
@@ -23,7 +24,7 @@ declare module "vscode" {
     | LanguageModelThinkingPart;
 
   export type LanguageModelConfigurationSchema = {
-    readonly type?: string;
+    readonly type?: "object";
     readonly properties?: {
       readonly [key: string]: Record<string, unknown> & {
         readonly enumItemLabels?: string[];

@@ -8,7 +8,8 @@ import {
   isPoolsideChatModel,
   orderModelMetadata,
   orderModels,
-} from "./models";
+  resolveMaxOutputTokens,
+} from "./catalog";
 
 test("recognizes Poolside chat models and excludes non-chat families", () => {
   assert.equal(isPoolsideChatModel("poolside/laguna-m.1"), true);
@@ -74,4 +75,10 @@ test("prefers upstream model limits while retaining fallback metadata", () => {
       maxOutputTokens: 65_536,
     },
   ]);
+});
+
+test("uses the selected catalog limit for default and explicit output settings", () => {
+  assert.equal(resolveMaxOutputTokens(0, 65_536), 65_536);
+  assert.equal(resolveMaxOutputTokens(100_000, 65_536), 65_536);
+  assert.equal(resolveMaxOutputTokens(32_000, 65_536), 32_000);
 });

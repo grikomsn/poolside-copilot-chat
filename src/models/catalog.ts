@@ -14,6 +14,15 @@ export interface PoolsideModelMetadata {
   readonly maxOutputTokens: number;
 }
 
+/**
+ * Fields from the Poolside Platform `/models` response. The actual API returns
+ * the standard OpenAI shape: `id`, `created`, `owned_by`, and `object`.
+ * The extra fields below (`context_length`, `max_output_tokens`, etc.) are
+ * accepted defensively so that providers or future API versions that include
+ * them will override the fallback metadata; when absent — as is the case today
+ * for the Poolside Platform — `modelMetadataFromApi` falls back to
+ * `FALLBACK_MODEL_METADATA`.
+ */
 export interface PoolsideApiModel {
   readonly id?: unknown;
   readonly version?: unknown;
@@ -76,6 +85,10 @@ export function getModelMetadata(id: string): PoolsideModelMetadata {
     contextLength: DEFAULT_MAX_INPUT_TOKENS,
     maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
   };
+}
+
+export function resolveMaxOutputTokens(configured: number, advertised: number): number {
+  return configured > 0 ? Math.min(configured, advertised) : advertised;
 }
 
 export function orderModelMetadata(models: readonly PoolsideApiModel[]): PoolsideModelMetadata[] {

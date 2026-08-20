@@ -14,7 +14,7 @@ Thanks for helping improve Poolside for GitHub Copilot Chat.
 Use Node.js 22 or newer:
 
 ```bash
-npm install
+npm ci
 npm test
 npm run package
 ```

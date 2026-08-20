@@ -2,9 +2,11 @@
 
 ## Credential storage
 
-Poolside API keys are stored in VS Code `SecretStorage`. They are not written to workspace settings, files, extension logs, or this repository. A key is validated against the hosted model-list endpoint before it is saved.
+Command-managed Poolside API keys are stored in VS Code `SecretStorage`; provider-entry keys are supplied through VS Code's secret provider configuration. They are not written to workspace settings, files, extension logs, or this repository. A key is validated against the hosted model-list endpoint before it is used for model discovery.
 
 Use **Poolside: Remove API Key** to delete the saved credential. Replacing a key validates the replacement before overwriting the existing secret.
+
+Provider entries created through **Manage Language Models** receive their API key through VS Code's provider configuration and are kept separate from the legacy command-managed key. A short one-way fingerprint is used in memory only to distinguish entries; the key itself is never used as a model identifier or log value.
 
 ## Network destination
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { API_KEY_SECRET, PoolsideAuth, type SecretStore } from "./auth";
+import { API_KEY_SECRET, credentialReference, PoolsideAuth, type SecretStore } from "./auth";
 
 class MemorySecrets implements SecretStore {
   readonly values = new Map<string, string>();
@@ -35,4 +35,10 @@ test("stores trimmed API keys and clears them", async () => {
 test("rejects empty API keys", async () => {
   const auth = new PoolsideAuth(new MemorySecrets());
   await assert.rejects(() => auth.storeApiKey(" \n "), /cannot be empty/);
+});
+
+test("creates a stable non-reversible credential reference", () => {
+  assert.equal(credentialReference(" poolside-secret "), credentialReference("poolside-secret"));
+  assert.match(credentialReference("poolside-secret"), /^[a-f0-9]{16}$/);
+  assert.notEqual(credentialReference("poolside-secret"), credentialReference("another-secret"));
 });

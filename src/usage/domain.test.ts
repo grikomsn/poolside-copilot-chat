@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { toProviderUsagePayload } from "./usage";
+import { toProviderUsagePayload } from "./domain";
 
 test("normalizes Poolside OpenAI-compatible usage for VS Code", () => {
   assert.deepEqual(toProviderUsagePayload({

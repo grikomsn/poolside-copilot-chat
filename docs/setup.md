@@ -12,11 +12,12 @@ A paid Copilot plan is not required for a bring-your-own-key language model prov
 
 1. Install the extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=grikomsn.poolside-copilot-chat).
 2. Create a key in [Poolside Platform](https://platform.poolside.ai/).
-3. Run **Poolside: Configure API Key** from the Command Palette and paste the key.
-4. In Copilot Chat, open the model picker, select **Manage Models**, and enable **Poolside**.
-5. Select an available Laguna model.
+3. In Copilot Chat, open the model picker, select **Manage Models**, add a **Poolside** provider entry, and enter the key.
+4. Select an available Laguna model.
 
-The extension validates the key with `https://inference.poolside.ai/v1/models` before saving it. The model list is refreshed from the same API, so models added to or removed from your Poolside account are reflected automatically.
+To use another Poolside account or API key, add another **Poolside** provider entry in **Manage Language Models**. API keys supplied to provider entries are managed by VS Code and are isolated from one another; the legacy **Poolside: Configure API Key** command remains available for command-driven workflows.
+
+Provider-entry model discovery uses `https://inference.poolside.ai/v1/models`, so models added to or removed from your Poolside account are reflected automatically. The legacy **Poolside: Configure API Key** command validates the key with the same endpoint before saving it.
 
 ## Commands
 
@@ -26,7 +27,7 @@ The extension validates the key with `https://inference.poolside.ai/v1/models` b
 | **Poolside: Configure API Key** | Validate and securely save a Poolside Platform API key |
 | **Poolside: Remove API Key** | Delete the key from VS Code Secret Storage |
 | **Poolside: Refresh Models** | Fetch the current hosted-model list |
-| **Poolside: Test Connection** | Send a small live inference request |
+| **Poolside: Test Inference** | Send a small live inference request |
 | **Poolside: Open API Keys** | Open Poolside Platform |
 | **Poolside: Show Diagnostics** | Show the VS Code version, endpoint, credential state, and registered models |
 
@@ -35,8 +36,10 @@ The extension validates the key with `https://inference.poolside.ai/v1/models` b
 | Setting | Default | Purpose |
 | --- | ---: | --- |
 | `poolsideCopilot.reasoningEffort` | `high` | Default reasoning effort; a Copilot model-picker selection overrides it |
-| `poolsideCopilot.maxOutputTokens` | `32768` | Maximum output tokens requested from Poolside |
+| `poolsideCopilot.maxOutputTokens` | `0` | Maximum output tokens requested from Poolside; `0` uses the selected model's advertised maximum |
 | `poolsideCopilot.requestTimeoutSeconds` | `600` | Inference request timeout in seconds |
+| `poolsideCopilot.streamIdleTimeoutSeconds` | `120` | Maximum time without streamed response data before aborting |
+| `poolsideCopilot.catalogCacheMinutes` | `5` | How long the hosted-model catalog is reused before refreshing |
 | `poolsideCopilot.debugLogging` | `false` | Log request, stream, usage, and model-discovery metadata to the Poolside output channel |
 
 Prompts and API keys are never intentionally written to the output channel.

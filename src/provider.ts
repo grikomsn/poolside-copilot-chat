@@ -1,30 +1,33 @@
 import * as vscode from "vscode";
-import { PoolsideAuth } from "./auth";
+import { PoolsideAuth } from "./auth/auth";
 import { messageOf } from "./errors";
 import {
-  DEFAULT_MAX_OUTPUT_TOKENS,
   FALLBACK_MODEL_METADATA,
   FALLBACK_MODELS,
   formatTokenLimit,
   formatModelName,
   orderModelMetadata,
+  resolveMaxOutputTokens,
   type PoolsideApiModel,
   type PoolsideModelMetadata,
-} from "./models";
+} from "./models/catalog";
 import {
   DEFAULT_REASONING_EFFORT,
   applyReasoningEffort,
   buildModelConfigurationSchema,
   resolveReasoningEffort,
   type ReasoningEffort,
-} from "./model-options";
-import { ChatCompletionStreamParser, type ChatStreamEvent } from "./sse";
-import { toProviderUsagePayload } from "./usage";
+} from "./models/options";
+import { ChatCompletionStreamParser, type ChatStreamEvent } from "./transport/sse";
+import { POOLSIDE_ENDPOINTS, poolsideHeaders } from "./transport/protocol";
+import { toProviderUsagePayload } from "./usage/domain";
+import { apiKeyFromConfiguration, credentialRefForApiKey, qualifiedModelId } from "./provider-profile";
 
-export const API_BASE = "https://inference.poolside.ai/v1";
+export { API_BASE } from "./transport/protocol";
 
 export interface PoolsideModel extends vscode.LanguageModelChatInformation {
   rawModelId: string;
+  credentialRef: string;
 }
 
 interface ApiMessage {
@@ -43,8 +46,9 @@ interface ApiToolCall {
 export class PoolsideProvider implements vscode.LanguageModelChatProvider<PoolsideModel> {
   private readonly changeEmitter = new vscode.EventEmitter<void>();
   readonly onDidChangeLanguageModelChatInformation = this.changeEmitter.event;
-  private models: PoolsideModelMetadata[] = [...FALLBACK_MODEL_METADATA];
-  private lastModelRefreshAt = 0;
+  private readonly catalogs = new Map<string, PoolsideModelMetadata[]>();
+  private readonly refreshedAt = new Map<string, number>();
+  private readonly apiKeys = new Map<string, string>();
 
   private get configuration(): vscode.WorkspaceConfiguration {
     return vscode.workspace.getConfiguration("poolsideCopilot");
@@ -67,41 +71,48 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
   async configureApiKey(apiKey: string): Promise<string[]> {
     const models = await this.fetchModels(apiKey.trim());
     await this.auth.storeApiKey(apiKey);
-    this.models = models;
-    this.lastModelRefreshAt = Date.now();
+    this.setCatalog("legacy", models);
     this.changeEmitter.fire();
     return models.map(({ id }) => id);
   }
 
   async clearApiKey(): Promise<void> {
     await this.auth.clearApiKey();
-    this.models = [...FALLBACK_MODEL_METADATA];
-    this.lastModelRefreshAt = 0;
+    this.apiKeys.delete("legacy");
+    this.setCatalog("legacy", [...FALLBACK_MODEL_METADATA]);
+    this.refreshedAt.delete("legacy");
     this.changeEmitter.fire();
   }
 
   async refreshModels(): Promise<string[]> {
-    const apiKey = await this.requireApiKey(false);
-    const models = await this.fetchModels(apiKey);
-    this.models = models;
-    this.lastModelRefreshAt = Date.now();
+    const apiKey = await this.requireApiKey(false, "legacy");
+    const models = await this.refreshCatalog("legacy", apiKey);
     this.changeEmitter.fire();
     return models.map(({ id }) => id);
   }
 
   async provideLanguageModelChatInformation(
-    _options: vscode.PrepareLanguageModelChatModelOptions,
+    options: vscode.PrepareLanguageModelChatModelOptions,
     token: vscode.CancellationToken,
   ): Promise<PoolsideModel[]> {
-    if (token.isCancellationRequested) return [];
-    const apiKey = await this.auth.getApiKey();
-    if (apiKey && Date.now() - this.lastModelRefreshAt > 5 * 60_000) {
+    const legacyApiKey = await this.auth.getApiKey();
+    const configuredApiKey = options.configuration
+      ? apiKeyFromConfiguration(options.configuration)
+      : undefined;
+    if (token.isCancellationRequested || (options.configuration && !configuredApiKey)) return [];
+    const apiKey = configuredApiKey ?? legacyApiKey;
+    const credentialRef = configuredApiKey
+      ? credentialRefForApiKey(configuredApiKey, legacyApiKey)
+      : "legacy";
+    if (apiKey) this.apiKeys.set(credentialRef, apiKey);
+    const maxAge = Math.max(1, this.configuration.get("catalogCacheMinutes", 5)) * 60_000;
+    if (apiKey && Date.now() - (this.refreshedAt.get(credentialRef) ?? 0) > maxAge) {
       try {
-        const models = await this.fetchModels(apiKey);
-        this.models = models;
-        this.lastModelRefreshAt = Date.now();
+        await this.refreshCatalog(credentialRef, apiKey, token);
       } catch (error) {
-        this.output.appendLine(`[models] discovery failed; using cached/fallback list: ${messageOf(error)}`);
+        if (!token.isCancellationRequested) {
+          this.output.appendLine(`[models] discovery failed; using cached/fallback list: ${messageOf(error)}`);
+        }
       }
     }
 
@@ -109,18 +120,24 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
       undefined,
       this.configuration.get("reasoningEffort", DEFAULT_REASONING_EFFORT),
     );
-    return this.models.map((metadata) => ({
-      id: metadata.id,
+    return this.catalogFor(credentialRef).map((metadata) => ({
+      id: qualifiedModelId(credentialRef, metadata.id),
       rawModelId: metadata.id,
+      credentialRef,
       name: formatModelName(metadata.id),
       family: "poolside-laguna",
       version: metadata.version,
-      detail: apiKey ? "Poolside Platform" : "Poolside API key required",
+      detail: credentialRef === "legacy"
+        ? (apiKey ? "Poolside Platform" : "Poolside API key required")
+        : `Poolside Platform · ${credentialRef.slice(0, 8)}`,
       tooltip: `${metadata.id} via the hosted Poolside API · ${formatTokenLimit(metadata.contextLength)} context · ${formatTokenLimit(metadata.maxOutputTokens)} max output · text only`,
       maxInputTokens: metadata.contextLength,
       maxOutputTokens: metadata.maxOutputTokens,
       isUserSelectable: true,
-      requiresAuthorization: apiKey ? undefined : { label: "Configure Poolside API key" },
+      ...(credentialRef !== "legacy" ? { isBYOK: true } : {}),
+      ...(credentialRef === "legacy" && !apiKey
+        ? { requiresAuthorization: { label: "Configure Poolside API key" } }
+        : {}),
       configurationSchema: buildModelConfigurationSchema(defaultEffort),
       capabilities: {
         imageInput: false,
@@ -136,35 +153,69 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
     token: vscode.CancellationToken,
   ): Promise<void> {
-    const apiKey = await this.requireApiKey(true);
+    const apiKey = await this.requireApiKey(false, model.credentialRef);
     const reasoningEffort = resolveReasoningEffort(
       options.modelConfiguration,
       this.configuration.get("reasoningEffort", DEFAULT_REASONING_EFFORT),
     );
-    const requestBody = buildRequest(model.rawModelId, messages, options, reasoningEffort);
-    const response = await this.sendRequest(apiKey, requestBody, token);
-    if (!response.ok) throw await apiError(`Poolside request failed for ${model.rawModelId}`, response);
-    if (!response.body) throw new Error("Poolside returned an empty response stream");
-
-    if (this.debugLogging) {
-      this.output.appendLine(`[request] model=${model.rawModelId} effort=${reasoningEffort} initiator=${options.requestInitiator ?? "unknown"}`);
-    }
-
-    const parser = new ChatCompletionStreamParser();
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    while (true) {
-      if (token.isCancellationRequested) {
-        await reader.cancel();
-        return;
+    const requestBody = buildRequest(model.rawModelId, messages, options, reasoningEffort, model.maxOutputTokens);
+    const controller = new AbortController();
+    const cancellation = token.onCancellationRequested(() => controller.abort());
+    const timeoutSeconds = Math.max(10, this.configuration.get("requestTimeoutSeconds", 600));
+    const idleTimeoutSeconds = Math.max(10, this.configuration.get("streamIdleTimeoutSeconds", 120));
+    let timedOut: "total" | "idle" | undefined;
+    const totalTimeout = setTimeout(() => {
+      timedOut = "total";
+      controller.abort();
+    }, timeoutSeconds * 1000);
+    let idleTimeout: ReturnType<typeof setTimeout> | undefined;
+    const resetIdleTimeout = (): void => {
+      if (idleTimeout) clearTimeout(idleTimeout);
+      idleTimeout = setTimeout(() => {
+        timedOut = "idle";
+        controller.abort();
+      }, idleTimeoutSeconds * 1000);
+    };
+    resetIdleTimeout();
+    try {
+      if (this.debugLogging) {
+        this.output.appendLine(`[request] model=${model.rawModelId} effort=${reasoningEffort} initiator=${options.requestInitiator ?? "unknown"}`);
       }
-      const result = await reader.read();
-      if (result.done) break;
-      for (const event of parser.push(decoder.decode(result.value, { stream: true }))) {
-        this.reportEvent(event, progress);
+      const response = await fetch(POOLSIDE_ENDPOINTS.chat, {
+        method: "POST",
+        headers: this.requestHeaders(apiKey, "text/event-stream"),
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+      if (!response.ok) throw await apiError(`Poolside request failed for ${model.rawModelId}`, response);
+      if (!response.body) throw new Error("Poolside returned an empty response stream");
+
+      const parser = new ChatCompletionStreamParser();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        if (token.isCancellationRequested) {
+          await reader.cancel();
+          return;
+        }
+        const result = await reader.read();
+        if (result.done) break;
+        resetIdleTimeout();
+        for (const event of parser.push(decoder.decode(result.value, { stream: true }))) {
+          this.reportEvent(event, progress);
+        }
       }
+      for (const event of parser.finish()) this.reportEvent(event, progress);
+    } catch (error) {
+      if (token.isCancellationRequested) return;
+      if (timedOut === "idle") throw new Error(`Poolside request for ${model.rawModelId} received no data for ${idleTimeoutSeconds} seconds`);
+      if (timedOut === "total") throw new Error(`Poolside request for ${model.rawModelId} exceeded ${timeoutSeconds} seconds`);
+      throw error;
+    } finally {
+      clearTimeout(totalTimeout);
+      if (idleTimeout) clearTimeout(idleTimeout);
+      cancellation.dispose();
     }
-    for (const event of parser.finish()) this.reportEvent(event, progress);
   }
 
   async provideTokenCount(
@@ -177,24 +228,25 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
   }
 
   async testConnection(): Promise<{ model: string; reasoningEffort: ReasoningEffort; text: string }> {
-    const apiKey = await this.requireApiKey(false);
-    const model = this.models.some(({ id }) => id === "poolside/laguna-xs-2.1")
+    const credentialRef = "legacy";
+    const apiKey = await this.requireApiKey(false, credentialRef);
+    const models = this.catalogFor(credentialRef);
+    const model = models.some(({ id }) => id === "poolside/laguna-xs-2.1")
       ? "poolside/laguna-xs-2.1"
-      : this.models[0]?.id ?? FALLBACK_MODELS[0];
+      : models[0]?.id ?? FALLBACK_MODELS[0];
     const reasoningEffort = resolveReasoningEffort(
       undefined,
       this.configuration.get("reasoningEffort", DEFAULT_REASONING_EFFORT),
     );
-    const response = await fetch(`${API_BASE}/chat/completions`, {
+    const response = await fetch(POOLSIDE_ENDPOINTS.chat, {
       method: "POST",
       headers: this.requestHeaders(apiKey, "application/json"),
-      body: JSON.stringify({
+      body: JSON.stringify(applyReasoningEffort({
         model,
         messages: [{ role: "user", content: "Reply with exactly: Poolside connection verified" }],
         max_completion_tokens: 512,
-        reasoning: { effort: reasoningEffort },
         stream: false,
-      }),
+      }, reasoningEffort)),
     });
     if (!response.ok) throw await apiError("Poolside connection test failed", response);
     const body = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
@@ -203,7 +255,7 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
 
   private async fetchModels(apiKey: string): Promise<PoolsideModelMetadata[]> {
     if (!apiKey) throw new Error("Poolside API key is not configured");
-    const response = await fetch(`${API_BASE}/models`, {
+    const response = await fetch(POOLSIDE_ENDPOINTS.models, {
       headers: this.requestHeaders(apiKey, "application/json, application/problem+json"),
     });
     if (!response.ok) throw await apiError("Unable to list Poolside models", response);
@@ -214,47 +266,47 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     return models;
   }
 
-  private async requireApiKey(prompt: boolean): Promise<string> {
-    let apiKey = await this.auth.getApiKey();
-    if (!apiKey && prompt) {
+  private async requireApiKey(prompt: boolean, credentialRef: string): Promise<string> {
+    let apiKey = credentialRef === "legacy" ? await this.auth.getApiKey() : this.apiKeys.get(credentialRef);
+    if (!apiKey && prompt && credentialRef === "legacy") {
       await vscode.commands.executeCommand("poolsideCopilot.configureApiKey");
       apiKey = await this.auth.getApiKey();
     }
     if (!apiKey) {
-      throw new Error("Poolside API key is not configured. Run ‘Poolside: Configure API Key’.");
+      throw new Error(credentialRef === "legacy"
+        ? "Poolside API key is not configured. Run ‘Poolside: Configure API Key’."
+        : "The API key for this Poolside provider entry is unavailable. Update the entry in Manage Language Models.");
     }
     return apiKey;
   }
 
-  private async sendRequest(
-    apiKey: string,
-    requestBody: Record<string, unknown>,
-    cancellation: vscode.CancellationToken,
-  ): Promise<Response> {
-    const controller = new AbortController();
-    const timeoutSeconds = Math.max(10, this.configuration.get("requestTimeoutSeconds", 600));
-    const timeout = setTimeout(() => controller.abort(), timeoutSeconds * 1000);
-    const listener = cancellation.onCancellationRequested(() => controller.abort());
-    try {
-      return await fetch(`${API_BASE}/chat/completions`, {
-        method: "POST",
-        headers: this.requestHeaders(apiKey, "text/event-stream"),
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-      listener.dispose();
+  private catalogFor(credentialRef: string): PoolsideModelMetadata[] {
+    let catalog = this.catalogs.get(credentialRef);
+    if (!catalog) {
+      catalog = [...FALLBACK_MODEL_METADATA];
+      this.catalogs.set(credentialRef, catalog);
     }
+    return catalog;
+  }
+
+  private setCatalog(credentialRef: string, models: readonly PoolsideModelMetadata[]): void {
+    this.catalogs.set(credentialRef, [...models]);
+    this.refreshedAt.set(credentialRef, Date.now());
+  }
+
+  private async refreshCatalog(
+    credentialRef: string,
+    apiKey: string,
+    token?: vscode.CancellationToken,
+  ): Promise<PoolsideModelMetadata[]> {
+    if (token?.isCancellationRequested) return this.catalogFor(credentialRef);
+    const models = await this.fetchModels(apiKey);
+    this.setCatalog(credentialRef, models);
+    return models;
   }
 
   private requestHeaders(apiKey: string, accept: string): Record<string, string> {
-    return {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      Accept: accept,
-      "User-Agent": this.userAgent,
-    };
+    return poolsideHeaders(apiKey, accept, this.userAgent);
   }
 
   private reportEvent(
@@ -290,10 +342,12 @@ function buildRequest(
   messages: readonly vscode.LanguageModelChatRequestMessage[],
   options: vscode.ProvideLanguageModelChatResponseOptions,
   reasoningEffort: ReasoningEffort,
+  advertisedMaxTokens: number,
 ): Record<string, unknown> {
-  const maxTokens = vscode.workspace
+  const configuredMaxTokens = vscode.workspace
     .getConfiguration("poolsideCopilot")
-    .get("maxOutputTokens", DEFAULT_MAX_OUTPUT_TOKENS);
+    .get("maxOutputTokens", 0);
+  const maxTokens = resolveMaxOutputTokens(configuredMaxTokens, advertisedMaxTokens);
   const tools = (options.tools ?? []).map((tool) => ({
     type: "function",
     function: {
