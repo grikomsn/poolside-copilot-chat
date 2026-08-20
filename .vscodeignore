@@ -1,6 +1,7 @@
 .github/**
 .changeset/**
 .vscode/**
+.codex/**
 docs/**
 assets/cover.jpg
 assets/Poolside*/**
@@ -11,7 +12,9 @@ tmp/**
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 SECURITY.md
+AGENTS.md
 src/**
+scripts/**
 out/**/*.test.*
 out/*.test.*
 **/*.map
@@ -19,3 +22,4 @@ out/*.test.*
 tsconfig.json
 package-lock.json
 *.vsix
+.DS_Store

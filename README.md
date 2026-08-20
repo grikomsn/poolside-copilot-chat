@@ -18,7 +18,8 @@ This extension is a native VS Code `LanguageModelChatProvider`. It validates a u
 ## Highlights
 
 - Direct, first-class Poolside Platform integration
-- API keys stored in VS Code Secret Storage
+- Credentials managed by VS Code Secret Storage or provider configuration
+- Multiple Poolside API-key entries in VS Code's Manage Language Models flow
 - Live hosted-model discovery with sensible Laguna fallbacks
 - Streaming text and model reasoning
 - Configurable reasoning effort in the Copilot model picker (`none`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`)
@@ -30,12 +31,14 @@ This extension is a native VS Code `LanguageModelChatProvider`. It validates a u
 
 1. Install [Poolside for GitHub Copilot Chat](https://marketplace.visualstudio.com/items?itemName=grikomsn.poolside-copilot-chat). You need VS Code 1.125 or newer and GitHub Copilot Chat.
 2. Create a developer API key in [Poolside Platform](https://platform.poolside.ai/).
-3. Run **Poolside: Configure API Key** from the Command Palette. The extension validates the key before saving it.
-4. Open Copilot Chat, select **Manage Models**, enable **Poolside**, then choose an available Laguna model.
+3. Open Copilot Chat, select **Manage Models**, add a **Poolside** provider entry, and enter your API key. VS Code stores the provider credential securely and Poolside model discovery checks it when loading models.
+4. Choose an available Laguna model.
 
-Use **Poolside: Manage Connection** to test inference, refresh hosted models, replace or remove the key, inspect logs, or create a diagnostic snapshot.
+To use more than one Poolside account or API key, add another **Poolside** entry in **Manage Language Models** and provide its API key. Each entry is isolated to its own model list and request credential.
 
-Choose a reasoning level from the model configuration control in Copilot Chat. The selection applies to that request and overrides the `poolsideCopilot.reasoningEffort` workspace default.
+Use **Poolside: Manage Connection** to test the legacy command-managed key, refresh hosted models, replace or remove it, inspect logs, or create a diagnostic snapshot. **Poolside: Configure API Key** remains available for that legacy command workflow.
+
+Choose a reasoning level from the model configuration control in Copilot Chat. The selection applies to that request and overrides the `poolsideCopilot.reasoningEffort` workspace default. Legacy `thinkingEffort` request values remain accepted for compatibility.
 
 Poolside's hosted Laguna models are currently text-only. Image attachments are disabled; prompts, tool definitions, tool results, and conversation context selected by Copilot Chat are sent directly to Poolside for inference.
 
@@ -49,5 +52,7 @@ Poolside's hosted Laguna models are currently text-only. Image attachments are d
 
 - [Grok for GitHub Copilot Chat](https://github.com/grikomsn/grok-copilot-chat) — Use xAI Grok models directly from the GitHub Copilot Chat model picker.
 - [Codex Bridge for Copilot Chat](https://github.com/grikomsn/openai-oauth-copilot-chat) — Use OpenAI Codex models in Copilot Chat with a ChatGPT Plus or Pro subscription.
+- [Ollama Cloud for GitHub Copilot Chat](https://github.com/grikomsn/ollama-cloud-copilot-chat) — Use Ollama Cloud models with native thinking and tool support.
+- [OpenCode for GitHub Copilot Chat](https://github.com/grikomsn/opencode-copilot-chat) — Use OpenCode Zen, Go, and Console models from the model picker.
 
 Unofficial project; not affiliated with Poolside, GitHub, or Microsoft. Poolside account limits and charges still apply. Licensed under [MIT](LICENSE).

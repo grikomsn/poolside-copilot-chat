@@ -17,6 +17,7 @@ export function resolveReasoningEffort(
   workspaceDefault: unknown,
 ): ReasoningEffort {
   const requested = stringOption(requestConfiguration, "reasoningEffort")
+    ?? stringOption(requestConfiguration, "thinkingEffort")
     ?? (typeof workspaceDefault === "string" ? workspaceDefault : undefined);
   return isReasoningEffort(requested) ? requested : DEFAULT_REASONING_EFFORT;
 }
@@ -47,13 +48,9 @@ export function applyReasoningEffort(
   body: Readonly<Record<string, unknown>>,
   effort: ReasoningEffort,
 ): Record<string, unknown> {
-  // The Poolside Platform API controls thinking via chat_template_kwargs.enable_thinking
-  // (a boolean on/off). The OpenRouter-style reasoning.effort field is also included so
-  // the same request body works with OpenRouter-compatible providers that accept it.
-  //   "none" disables thinking on the Poolside Platform (enable_thinking=false) and
-  //           requests no reasoning on OpenRouter (effort="none").
-  //   All other values leave thinking enabled by default (the Poolide Platform default)
-  //   and pass the fine-grained effort to OpenRouter-style providers.
+  // Poolside controls native thinking with chat_template_kwargs.enable_thinking.
+  // Preserve the OpenRouter-style reasoning field for compatible endpoints while
+  // translating the shared "none" picker value to Poolside's native switch.
   const result: Record<string, unknown> = { ...body, reasoning: { effort } };
   if (effort === "none") {
     result.chat_template_kwargs = { enable_thinking: false };

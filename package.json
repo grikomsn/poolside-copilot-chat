@@ -55,7 +55,7 @@
       },
       {
         "command": "poolsideCopilot.testConnection",
-        "title": "Poolside: Test Connection"
+        "title": "Poolside: Test Inference"
       },
       {
         "command": "poolsideCopilot.openApiKeys",
@@ -94,16 +94,27 @@
         },
         "poolsideCopilot.maxOutputTokens": {
           "type": "number",
-          "default": 32768,
-          "minimum": 1,
-          "maximum": 65536,
-          "description": "Maximum output tokens requested from Poolside hosted models."
+          "default": 0,
+          "minimum": 0,
+          "description": "Maximum output tokens requested from Poolside hosted models. Use 0 to use the selected model's advertised maximum."
         },
         "poolsideCopilot.requestTimeoutSeconds": {
           "type": "number",
           "default": 600,
           "minimum": 10,
           "description": "Maximum duration of a Poolside inference request in seconds."
+        },
+        "poolsideCopilot.streamIdleTimeoutSeconds": {
+          "type": "number",
+          "default": 120,
+          "minimum": 10,
+          "description": "Maximum time without receiving streamed Poolside response data before aborting a request."
+        },
+        "poolsideCopilot.catalogCacheMinutes": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "description": "How long the Poolside hosted-model catalog is reused before refreshing."
         },
         "poolsideCopilot.debugLogging": {
           "type": "boolean",
@@ -116,7 +127,20 @@
       {
         "vendor": "poolside",
         "displayName": "Poolside",
-        "managementCommand": "poolsideCopilot.manage"
+        "configuration": {
+          "type": "object",
+          "required": [
+            "apiKey"
+          ],
+          "properties": {
+            "apiKey": {
+              "type": "string",
+              "title": "Poolside API Key",
+              "description": "API key for this Poolside provider entry. VS Code stores configured secrets securely.",
+              "secret": true
+            }
+          }
+        }
       }
     ]
   },

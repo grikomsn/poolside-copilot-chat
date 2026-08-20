@@ -1,4 +1,10 @@
+import { createHash } from "node:crypto";
+
 export const API_KEY_SECRET = "poolsideCopilot.apiKey";
+
+export function credentialReference(apiKey: string): string {
+  return createHash("sha256").update(apiKey.trim()).digest("hex").slice(0, 16);
+}
 
 export interface SecretStore {
   get(key: string): PromiseLike<string | undefined>;

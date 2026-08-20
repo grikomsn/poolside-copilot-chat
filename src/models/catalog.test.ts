@@ -8,7 +8,7 @@ import {
   isPoolsideChatModel,
   orderModelMetadata,
   orderModels,
-} from "./models";
+} from "./catalog";
 
 test("recognizes Poolside chat models and excludes non-chat families", () => {
   assert.equal(isPoolsideChatModel("poolside/laguna-m.1"), true);

@@ -6,7 +6,7 @@ import {
   applyReasoningEffort,
   buildModelConfigurationSchema,
   resolveReasoningEffort,
-} from "./model-options";
+} from "./options";
 
 test("exposes every Poolside reasoning effort in a native model-picker control", () => {
   const schema = buildModelConfigurationSchema("minimal");
@@ -26,6 +26,7 @@ test("exposes every Poolside reasoning effort in a native model-picker control",
 
 test("per-request effort overrides the workspace default", () => {
   assert.equal(resolveReasoningEffort({ reasoningEffort: "low" }, "medium"), "low");
+  assert.equal(resolveReasoningEffort({ thinkingEffort: "medium" }, "low"), "medium");
   assert.equal(resolveReasoningEffort(undefined, "xhigh"), "xhigh");
   assert.equal(resolveReasoningEffort({ reasoningEffort: "max" }, "high"), "max");
 });
