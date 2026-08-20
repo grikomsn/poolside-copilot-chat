@@ -6,8 +6,8 @@ import {
   FALLBACK_MODELS,
   formatTokenLimit,
   formatModelName,
-  getModelMetadata,
   orderModelMetadata,
+  resolveMaxOutputTokens,
   type PoolsideApiModel,
   type PoolsideModelMetadata,
 } from "./models/catalog";
@@ -49,7 +49,6 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
   private readonly catalogs = new Map<string, PoolsideModelMetadata[]>();
   private readonly refreshedAt = new Map<string, number>();
   private readonly apiKeys = new Map<string, string>();
-  private activeCredentialRef = "legacy";
 
   private get configuration(): vscode.WorkspaceConfiguration {
     return vscode.workspace.getConfiguration("poolsideCopilot");
@@ -72,7 +71,6 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
   async configureApiKey(apiKey: string): Promise<string[]> {
     const models = await this.fetchModels(apiKey.trim());
     await this.auth.storeApiKey(apiKey);
-    this.activeCredentialRef = "legacy";
     this.setCatalog("legacy", models);
     this.changeEmitter.fire();
     return models.map(({ id }) => id);
@@ -97,14 +95,18 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     options: vscode.PrepareLanguageModelChatModelOptions,
     token: vscode.CancellationToken,
   ): Promise<PoolsideModel[]> {
-    if (token.isCancellationRequested || !options.configuration) return [];
-    const apiKey = apiKeyFromConfiguration(options.configuration);
-    if (!apiKey) return [];
     const legacyApiKey = await this.auth.getApiKey();
-    const credentialRef = credentialRefForApiKey(apiKey, legacyApiKey);
-    this.apiKeys.set(credentialRef, apiKey);
+    const configuredApiKey = options.configuration
+      ? apiKeyFromConfiguration(options.configuration)
+      : undefined;
+    if (token.isCancellationRequested || (options.configuration && !configuredApiKey)) return [];
+    const apiKey = configuredApiKey ?? legacyApiKey;
+    const credentialRef = configuredApiKey
+      ? credentialRefForApiKey(configuredApiKey, legacyApiKey)
+      : "legacy";
+    if (apiKey) this.apiKeys.set(credentialRef, apiKey);
     const maxAge = Math.max(1, this.configuration.get("catalogCacheMinutes", 5)) * 60_000;
-    if (Date.now() - (this.refreshedAt.get(credentialRef) ?? 0) > maxAge) {
+    if (apiKey && Date.now() - (this.refreshedAt.get(credentialRef) ?? 0) > maxAge) {
       try {
         await this.refreshCatalog(credentialRef, apiKey, token);
       } catch (error) {
@@ -125,13 +127,17 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
       name: formatModelName(metadata.id),
       family: "poolside-laguna",
       version: metadata.version,
-      detail: credentialRef === "legacy" ? "Poolside Platform" : `Poolside Platform · ${credentialRef.slice(0, 8)}`,
+      detail: credentialRef === "legacy"
+        ? (apiKey ? "Poolside Platform" : "Poolside API key required")
+        : `Poolside Platform · ${credentialRef.slice(0, 8)}`,
       tooltip: `${metadata.id} via the hosted Poolside API · ${formatTokenLimit(metadata.contextLength)} context · ${formatTokenLimit(metadata.maxOutputTokens)} max output · text only`,
       maxInputTokens: metadata.contextLength,
       maxOutputTokens: metadata.maxOutputTokens,
       isUserSelectable: true,
-      isBYOK: true,
-      requiresAuthorization: { label: `Poolside API key (${credentialRef.slice(0, 8)})` },
+      ...(credentialRef !== "legacy" ? { isBYOK: true } : {}),
+      ...(credentialRef === "legacy" && !apiKey
+        ? { requiresAuthorization: { label: "Configure Poolside API key" } }
+        : {}),
       configurationSchema: buildModelConfigurationSchema(defaultEffort),
       capabilities: {
         imageInput: false,
@@ -147,13 +153,12 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
     token: vscode.CancellationToken,
   ): Promise<void> {
-    this.activeCredentialRef = model.credentialRef;
     const apiKey = await this.requireApiKey(false, model.credentialRef);
     const reasoningEffort = resolveReasoningEffort(
       options.modelConfiguration,
       this.configuration.get("reasoningEffort", DEFAULT_REASONING_EFFORT),
     );
-    const requestBody = buildRequest(model.rawModelId, messages, options, reasoningEffort);
+    const requestBody = buildRequest(model.rawModelId, messages, options, reasoningEffort, model.maxOutputTokens);
     const controller = new AbortController();
     const cancellation = token.onCancellationRequested(() => controller.abort());
     const timeoutSeconds = Math.max(10, this.configuration.get("requestTimeoutSeconds", 600));
@@ -223,7 +228,7 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
   }
 
   async testConnection(): Promise<{ model: string; reasoningEffort: ReasoningEffort; text: string }> {
-    const credentialRef = this.activeCredentialRef;
+    const credentialRef = "legacy";
     const apiKey = await this.requireApiKey(false, credentialRef);
     const models = this.catalogFor(credentialRef);
     const model = models.some(({ id }) => id === "poolside/laguna-xs-2.1")
@@ -337,14 +342,12 @@ function buildRequest(
   messages: readonly vscode.LanguageModelChatRequestMessage[],
   options: vscode.ProvideLanguageModelChatResponseOptions,
   reasoningEffort: ReasoningEffort,
+  advertisedMaxTokens: number,
 ): Record<string, unknown> {
   const configuredMaxTokens = vscode.workspace
     .getConfiguration("poolsideCopilot")
     .get("maxOutputTokens", 0);
-  const advertisedMaxTokens = getModelMetadata(model).maxOutputTokens;
-  const maxTokens = configuredMaxTokens > 0
-    ? Math.min(configuredMaxTokens, advertisedMaxTokens)
-    : advertisedMaxTokens;
+  const maxTokens = resolveMaxOutputTokens(configuredMaxTokens, advertisedMaxTokens);
   const tools = (options.tools ?? []).map((tool) => ({
     type: "function",
     function: {

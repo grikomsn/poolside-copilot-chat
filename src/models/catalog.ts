@@ -87,6 +87,10 @@ export function getModelMetadata(id: string): PoolsideModelMetadata {
   };
 }
 
+export function resolveMaxOutputTokens(configured: number, advertised: number): number {
+  return configured > 0 ? Math.min(configured, advertised) : advertised;
+}
+
 export function orderModelMetadata(models: readonly PoolsideApiModel[]): PoolsideModelMetadata[] {
   const metadataById = new Map<string, PoolsideModelMetadata>();
   for (const model of models) {
