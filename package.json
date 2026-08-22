@@ -72,25 +72,15 @@
         "poolsideCopilot.reasoningEffort": {
           "type": "string",
           "enum": [
-            "none",
-            "minimal",
-            "low",
-            "medium",
-            "high",
-            "xhigh",
-            "max"
+            "max",
+            "none"
           ],
-          "default": "high",
+          "default": "max",
           "enumDescriptions": [
-            "Disable reasoning and thinking",
-            "Use the smallest available reasoning budget",
-            "Faster responses with lighter reasoning",
-            "Balance response speed and reasoning depth",
-            "Use deeper reasoning for complex coding tasks",
-            "Use a very high reasoning effort",
-            "Use the highest available reasoning effort"
+            "Enable Poolside thinking (default).",
+            "Disable Poolside thinking."
           ],
-          "description": "Default Poolside reasoning effort. A Copilot model-picker selection overrides this value."
+          "description": "Default Poolside thinking mode. A Copilot model-picker selection overrides this value."
         },
         "poolsideCopilot.maxOutputTokens": {
           "type": "number",

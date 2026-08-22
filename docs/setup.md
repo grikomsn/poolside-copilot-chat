@@ -35,7 +35,7 @@ Provider-entry model discovery uses `https://inference.poolside.ai/v1/models`, s
 
 | Setting | Default | Purpose |
 | --- | ---: | --- |
-| `poolsideCopilot.reasoningEffort` | `high` | Default reasoning effort; a Copilot model-picker selection overrides it |
+| `poolsideCopilot.reasoningEffort` | `max` | Default Poolside thinking mode (`max` or `none`); a Copilot model-picker selection overrides it |
 | `poolsideCopilot.maxOutputTokens` | `0` | Maximum output tokens requested from Poolside; `0` uses the selected model's advertised maximum |
 | `poolsideCopilot.requestTimeoutSeconds` | `600` | Inference request timeout in seconds |
 | `poolsideCopilot.streamIdleTimeoutSeconds` | `120` | Maximum time without streamed response data before aborting |
