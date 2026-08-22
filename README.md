@@ -38,7 +38,7 @@ To use more than one Poolside account or API key, add another **Poolside** entry
 
 Use **Poolside: Manage Connection** to test the legacy command-managed key, refresh hosted models, replace or remove it, inspect logs, or create a diagnostic snapshot. **Poolside: Configure API Key** remains available for that legacy command workflow.
 
-Choose a reasoning level from the model configuration control in Copilot Chat. The selection applies to that request and overrides the `poolsideCopilot.reasoningEffort` workspace default. Legacy `thinkingEffort` request values remain accepted for compatibility.
+Choose **Max** or **None** from the thinking control in Copilot Chat. Poolside-hosted inference defaults to **Max**; the selection applies to that request and overrides the `poolsideCopilot.reasoningEffort` workspace default.
 
 Poolside's hosted Laguna models are currently text-only. Image attachments are disabled; prompts, tool definitions, tool results, and conversation context selected by Copilot Chat are sent directly to Poolside for inference.
 

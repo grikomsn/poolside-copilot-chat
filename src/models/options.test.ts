@@ -8,48 +8,33 @@ import {
   resolveReasoningEffort,
 } from "./options";
 
-test("exposes every Poolside reasoning effort in a native model-picker control", () => {
-  const schema = buildModelConfigurationSchema("minimal");
+test("exposes Poolside-hosted thinking modes in a native model-picker control", () => {
+  const schema = buildModelConfigurationSchema("max");
   assert.deepEqual(schema.properties.reasoningEffort.enum, REASONING_EFFORTS);
-  assert.deepEqual(schema.properties.reasoningEffort.enumItemLabels, [
-    "None",
-    "Minimal",
-    "Low",
-    "Medium",
-    "High",
-    "Extra High",
-    "Max",
-  ]);
-  assert.equal(schema.properties.reasoningEffort.default, "minimal");
+  assert.deepEqual(schema.properties.reasoningEffort.enumItemLabels, ["Max", "None"]);
+  assert.equal(schema.properties.reasoningEffort.default, "max");
   assert.equal(schema.properties.reasoningEffort.group, "navigation");
 });
 
 test("per-request effort overrides the workspace default", () => {
-  assert.equal(resolveReasoningEffort({ reasoningEffort: "low" }, "medium"), "low");
-  assert.equal(resolveReasoningEffort({ thinkingEffort: "medium" }, "low"), "medium");
-  assert.equal(resolveReasoningEffort(undefined, "xhigh"), "xhigh");
-  assert.equal(resolveReasoningEffort({ reasoningEffort: "max" }, "high"), "max");
+  assert.equal(resolveReasoningEffort({ reasoningEffort: "none" }, "max"), "none");
+  assert.equal(resolveReasoningEffort({ thinkingEffort: "none" }, "max"), "none");
+  assert.equal(resolveReasoningEffort(undefined, "none"), "none");
+  assert.equal(resolveReasoningEffort({ reasoningEffort: "max" }, "none"), "max");
 });
 
-test("invalid effort safely falls back to high", () => {
-  assert.equal(resolveReasoningEffort({ reasoningEffort: "maximum" }, "minimal"), DEFAULT_REASONING_EFFORT);
+test("unsupported effort safely falls back to max", () => {
+  assert.equal(resolveReasoningEffort({ reasoningEffort: "high" }, "none"), DEFAULT_REASONING_EFFORT);
   assert.equal(resolveReasoningEffort(undefined, "invalid"), DEFAULT_REASONING_EFFORT);
 });
 
-test("applies OpenRouter-style reasoning with Poolside thinking toggle", () => {
-  // "none" disables thinking on the Poolside Platform and sends no reasoning on OpenRouter
+test("applies Poolside's native thinking toggle", () => {
   assert.deepEqual(applyReasoningEffort({ model: "poolside/laguna-m.1" }, "none"), {
     model: "poolside/laguna-m.1",
-    reasoning: { effort: "none" },
     chat_template_kwargs: { enable_thinking: false },
-  });
-  // Non-"none" levels keep thinking enabled by default and forward the effort value
-  assert.deepEqual(applyReasoningEffort({ model: "poolside/laguna-m.1" }, "xhigh"), {
-    model: "poolside/laguna-m.1",
-    reasoning: { effort: "xhigh" },
   });
   assert.deepEqual(applyReasoningEffort({ model: "poolside/laguna-m.1" }, "max"), {
     model: "poolside/laguna-m.1",
-    reasoning: { effort: "max" },
+    chat_template_kwargs: { enable_thinking: true },
   });
 });

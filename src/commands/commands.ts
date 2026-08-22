@@ -137,7 +137,7 @@ async function diagnostics(auth: PoolsideAuth, output: vscode.OutputChannel): Pr
     `- VS Code: ${vscode.version}`,
     `- API endpoint: ${API_BASE}`,
     `- API key: ${(await auth.hasApiKey()) ? "configured in Secret Storage" : "missing"}`,
-    `- Default reasoning effort: ${vscode.workspace.getConfiguration("poolsideCopilot").get("reasoningEffort", "high")}`,
+    `- Default reasoning effort: ${vscode.workspace.getConfiguration("poolsideCopilot").get("reasoningEffort", "max")}`,
     `- Registered models: ${models.length}`,
     "",
     ...models.map((model) => `- ${model.id} (${model.maxInputTokens} input tokens)`),

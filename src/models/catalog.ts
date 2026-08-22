@@ -5,7 +5,10 @@ export const FALLBACK_MODELS = [
 ] as const;
 
 export const DEFAULT_MAX_INPUT_TOKENS = 262_144;
-export const DEFAULT_MAX_OUTPUT_TOKENS = 32_768;
+// Poolside-hosted inference defaults to 32K output tokens but documents a
+// 262,144-token maximum. VS Code's catalog metadata describes the limit, not
+// the server default.
+export const DEFAULT_MAX_OUTPUT_TOKENS = 262_144;
 
 export interface PoolsideModelMetadata {
   readonly id: string;
@@ -50,7 +53,7 @@ export const FALLBACK_MODEL_METADATA: readonly PoolsideModelMetadata[] = [
     id: "poolside/laguna-s-2.1",
     version: "2.1",
     contextLength: 1_048_576,
-    maxOutputTokens: 131_072,
+    maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
   },
 ];
 
@@ -69,7 +72,7 @@ export function isPoolsideChatModel(id: string): boolean {
 }
 
 export function orderModels(ids: readonly string[]): string[] {
-  return [...new Set(ids)]
+  return [...new Set(ids.map(canonicalModelId))]
     .filter(isPoolsideChatModel)
     .sort((left, right) => {
       const leftRank = PREFERRED_ORDER.get(left) ?? Number.MAX_SAFE_INTEGER;
@@ -92,10 +95,19 @@ export function resolveMaxOutputTokens(configured: number, advertised: number): 
 }
 
 export function orderModelMetadata(models: readonly PoolsideApiModel[]): PoolsideModelMetadata[] {
-  const metadataById = new Map<string, PoolsideModelMetadata>();
+  // `/models` is account-scoped, whereas Poolside's documented Laguna family is
+  // a stable picker baseline. Keep the baseline when a deployment omits a model
+  // from discovery, then let any advertised limits override it.
+  const metadataById = new Map<string, PoolsideModelMetadata>(
+    FALLBACK_MODEL_METADATA.map((metadata) => [metadata.id, metadata]),
+  );
+  const discoveredIds = new Set<string>();
   for (const model of models) {
     const metadata = modelMetadataFromApi(model);
-    if (metadata && !metadataById.has(metadata.id)) metadataById.set(metadata.id, metadata);
+    if (metadata && !discoveredIds.has(metadata.id)) {
+      metadataById.set(metadata.id, metadata);
+      discoveredIds.add(metadata.id);
+    }
   }
   return orderModels([...metadataById.keys()]).flatMap((id) => {
     const metadata = metadataById.get(id);
@@ -111,9 +123,11 @@ export function formatTokenLimit(tokens: number): string {
 
 function modelMetadataFromApi(model: PoolsideApiModel): PoolsideModelMetadata | undefined {
   if (typeof model.id !== "string" || !isPoolsideChatModel(model.id)) return undefined;
-  const fallback = getModelMetadata(model.id);
+  const id = canonicalModelId(model.id);
+  const fallback = getModelMetadata(id);
   return {
     ...fallback,
+    id,
     ...(typeof model.version === "string" && model.version ? { version: model.version } : {}),
     contextLength: positiveInteger(
       model.context_length ?? model.max_context_tokens ?? model.max_model_len,
@@ -122,6 +136,13 @@ function modelMetadataFromApi(model: PoolsideApiModel): PoolsideModelMetadata | 
       model.max_output_tokens ?? model.max_completion_tokens,
     ) ?? fallback.maxOutputTokens,
   };
+}
+
+function canonicalModelId(id: string): string {
+  // Poolside documents hosted IDs in lowercase. Canonicalizing before the
+  // picker is built collapses casing-only aliases from `/models`, which VS Code
+  // otherwise renders as duplicate names.
+  return id.toLowerCase();
 }
 
 function positiveInteger(value: unknown): number | undefined {
