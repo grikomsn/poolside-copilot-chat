@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+### Patch Changes
+
+- 123886d: Show every documented Laguna model, align thinking controls and output-token limits with Poolside-hosted inference, and collapse casing-only catalog aliases in the VS Code picker.
+
 ## 0.1.0
 
 ### Minor Changes
