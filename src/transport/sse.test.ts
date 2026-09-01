@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ChatCompletionStreamParser } from "./sse";
+import { ChatCompletionStreamParser, validateStreamCompletion } from "./sse";
 
 test("parses fragmented Poolside text, reasoning, usage, and tool calls", () => {
   const parser = new ChatCompletionStreamParser();
@@ -28,4 +28,23 @@ test("ignores comments and malformed event blocks", () => {
   assert.deepEqual(parser.push(": keep-alive\n\n"), []);
   assert.deepEqual(parser.push("data: not-json\n\n"), []);
   assert.deepEqual(parser.finish(), []);
+});
+
+test("rejects incomplete tool arguments and normalizes empty arguments", () => {
+  const incomplete = new ChatCompletionStreamParser();
+  assert.throws(
+    () => incomplete.push('data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"lookup","arguments":"{"}}]},"finish_reason":"tool_calls"}]}\n\n'),
+    /incomplete arguments for tool lookup/,
+  );
+
+  const empty = new ChatCompletionStreamParser();
+  const events = empty.push('data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"now","arguments":""}}]},"finish_reason":"tool_calls"}]}\n\n');
+  assert.equal(events[0].toolCalls?.[0].arguments, "{}");
+});
+
+test("validates stream completion reasons", () => {
+  assert.doesNotThrow(() => validateStreamCompletion("stop"));
+  assert.doesNotThrow(() => validateStreamCompletion("tool_calls"));
+  assert.throws(() => validateStreamCompletion(undefined), /before a completion reason/);
+  assert.throws(() => validateStreamCompletion("length"), /output token limit/);
 });

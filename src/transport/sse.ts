@@ -10,11 +10,15 @@ export interface ChatStreamEvent {
   toolCalls?: PendingToolCall[];
   usage?: Record<string, unknown>;
   done?: boolean;
+  finishReason?: string;
 }
 
 export class ChatCompletionStreamParser {
   private buffer = "";
   private readonly pendingTools = new Map<number, PendingToolCall>();
+  private lastFinishReason: string | undefined;
+
+  get finishReason(): string | undefined { return this.lastFinishReason; }
 
   push(chunk: string): ChatStreamEvent[] {
     this.buffer += chunk.replace(/\r\n/g, "\n");
@@ -67,6 +71,7 @@ export class ChatCompletionStreamParser {
     const finishReason = typeof choice?.finish_reason === "string" && choice.finish_reason
       ? choice.finish_reason
       : undefined;
+    if (finishReason) this.lastFinishReason = finishReason;
     const toolCalls = finishReason ? this.flushTools() : [];
     const text = typeof delta.content === "string" ? delta.content : undefined;
     const reasoning = [delta.reasoning_content, delta.reasoning]
@@ -79,6 +84,7 @@ export class ChatCompletionStreamParser {
       ...(reasoning ? { reasoning } : {}),
       ...(toolCalls.length ? { toolCalls } : {}),
       ...(usage ? { usage } : {}),
+      ...(finishReason ? { finishReason } : {}),
     };
   }
 
@@ -97,10 +103,28 @@ export class ChatCompletionStreamParser {
   }
 
   private flushTools(): PendingToolCall[] {
-    const tools = [...this.pendingTools.values()].filter((tool) => tool.name);
+    const tools = [...this.pendingTools.values()].filter((tool) => tool.name).map(completeToolCall);
     this.pendingTools.clear();
     return tools;
   }
+}
+
+export function validateStreamCompletion(finishReason: string | undefined): void {
+  if (finishReason === "stop" || finishReason === "tool_calls" || finishReason === "function_call") return;
+  if (!finishReason) throw new Error("Poolside response stream ended before a completion reason was received");
+  if (finishReason === "length") throw new Error("Poolside response reached its output token limit before completing");
+  if (finishReason === "content_filter") throw new Error("Poolside stopped the response because of its content filter");
+  throw new Error(`Poolside response ended with finish reason: ${finishReason}`);
+}
+
+function completeToolCall(tool: PendingToolCall): PendingToolCall {
+  const args = tool.arguments.trim() || "{}";
+  try {
+    JSON.parse(args);
+  } catch {
+    throw new Error(`Poolside response stream ended with incomplete arguments for tool ${tool.name}`);
+  }
+  return { ...tool, arguments: args };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

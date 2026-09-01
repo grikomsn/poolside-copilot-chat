@@ -18,7 +18,7 @@ import {
   resolveReasoningEffort,
   type ReasoningEffort,
 } from "./models/options";
-import { ChatCompletionStreamParser, type ChatStreamEvent } from "./transport/sse";
+import { ChatCompletionStreamParser, type ChatStreamEvent, validateStreamCompletion } from "./transport/sse";
 import { POOLSIDE_ENDPOINTS, poolsideHeaders } from "./transport/protocol";
 import { toProviderUsagePayload } from "./usage/domain";
 import { apiKeyFromConfiguration, credentialRefForApiKey, qualifiedModelId } from "./provider-profile";
@@ -206,6 +206,7 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
         }
       }
       for (const event of parser.finish()) this.reportEvent(event, progress);
+      validateStreamCompletion(parser.finishReason);
     } catch (error) {
       if (token.isCancellationRequested) return;
       if (timedOut === "idle") throw new Error(`Poolside request for ${model.rawModelId} received no data for ${idleTimeoutSeconds} seconds`);
