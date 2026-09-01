@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+### Patch Changes
+
+- 0e360f5: Validate streamed completion reasons and reject incomplete tool arguments before they reach Copilot Chat.
+
 ## 0.1.1
 
 ### Patch Changes
