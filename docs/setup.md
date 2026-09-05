@@ -56,6 +56,8 @@ Prompts and API keys are never intentionally written to the output channel.
 
 Inline code suggestions are experimental and off by default. When enabled, each suggestion sends a bounded fill-in-the-middle prompt (10 lines before the cursor, 300 characters after, both configurable) with FIM delimiter tokens to the fixed `/chat/completions` endpoint. Following the live benchmark, `laguna-xs-2.1` is requested with no thinking field (396ms TTFB, zero hidden reasoning — sending the thinking switch there perturbs output), while `laguna-s-2.1` receives `chat_template_kwargs.enable_thinking: false`. Hidden reasoning deltas are discarded engine-side, and the Copilot Chat prompt box is excluded unless `poolsideCopilot.inlineSuggestionsChatInput` is enabled. Note that `poolside/laguna-m.1` no longer exists upstream (`/v1/models` lists only xs and s); use one of those two.
 
+**Poolside: Set Inline Suggestions Model** (also in the Manage menu) lists the compatible Laguna models with measured badges. A "Use a custom model id…" entry keeps any Poolside model id reachable. The command only writes settings, so changes apply on the next keystroke without a reload.
+
 ## Troubleshooting
 
 - **No Poolside models in the picker:** enable **Poolside** under **Manage Models**, then run **Poolside: Refresh Models**.

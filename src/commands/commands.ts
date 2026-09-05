@@ -1,6 +1,8 @@
 /** User-facing Poolside commands and connection workflows. */
 
 import * as vscode from "vscode";
+import { CONFIG_SECTION, DEFAULT_INLINE_MODEL, INLINE_SUGGESTIONS_MODEL_SETTING } from "../autocomplete/config";
+import { inlineModelChoices } from "../autocomplete/models";
 import { PoolsideAuth } from "../auth/auth";
 import { messageOf } from "../errors";
 import { API_BASE, PoolsideProvider } from "../provider";
@@ -17,6 +19,7 @@ export function registerCommands(
     vscode.commands.registerCommand("poolsideCopilot.configureApiKey", () => configureApiKey(provider, output)),
     vscode.commands.registerCommand("poolsideCopilot.removeApiKey", () => removeApiKey(provider)),
     vscode.commands.registerCommand("poolsideCopilot.refreshModels", () => refreshModels(provider)),
+    vscode.commands.registerCommand("poolsideCopilot.setInlineSuggestionsModel", () => setInlineSuggestionsModel()),
     vscode.commands.registerCommand("poolsideCopilot.testConnection", () => testConnection(provider, output)),
     vscode.commands.registerCommand("poolsideCopilot.openApiKeys", () => openApiKeys()),
     vscode.commands.registerCommand("poolsideCopilot.diagnostics", () => diagnostics(auth, output)),
@@ -33,6 +36,7 @@ async function manage(
     ? [
         { label: "$(check) Test Poolside inference", action: "test" },
         { label: "$(refresh) Refresh hosted models", action: "refresh" },
+        { label: "$(zap) Set inline suggestions model", action: "inlineModel" },
         { label: "$(key) Replace API key", action: "configure" },
         { label: "$(link-external) Open Poolside API keys", action: "open" },
         { label: "$(output) Show Poolside logs", action: "logs" },
@@ -50,6 +54,7 @@ async function manage(
   if (!picked) return;
   if (picked.action === "configure") await configureApiKey(provider, output);
   else if (picked.action === "refresh") await refreshModels(provider);
+  else if (picked.action === "inlineModel") await setInlineSuggestionsModel();
   else if (picked.action === "test") await testConnection(provider, output);
   else if (picked.action === "open") await openApiKeys();
   else if (picked.action === "logs") output.show(true);
@@ -105,6 +110,42 @@ async function refreshModels(provider: PoolsideProvider): Promise<void> {
   } catch (error) {
     vscode.window.showErrorMessage(messageOf(error));
   }
+}
+
+interface InlineModelPickItem extends vscode.QuickPickItem {
+  readonly action?: string | "custom";
+}
+
+async function setInlineSuggestionsModel(): Promise<void> {
+  const configuration = vscode.workspace.getConfiguration(CONFIG_SECTION);
+  const current = configuration.get<string>(INLINE_SUGGESTIONS_MODEL_SETTING, DEFAULT_INLINE_MODEL) ?? DEFAULT_INLINE_MODEL;
+  const picked = await vscode.window.showQuickPick<InlineModelPickItem>([
+    ...inlineModelChoices(current).map((choice) => ({
+      label: choice.label,
+      description: choice.description,
+      detail: choice.detail,
+      action: choice.id,
+    })),
+    { label: "", kind: vscode.QuickPickItemKind.Separator },
+    { label: "$(pencil) Use a custom model id…", detail: "Enter any Poolside model id; the hosted list currently exposes the two Laguna models.", action: "custom" as const },
+  ], {
+    title: "Poolside — Set Inline Suggestions Model",
+    placeHolder: `Current: ${current}`,
+  });
+  if (!picked?.action) return;
+  if (picked.action === "custom") {
+    const value = await vscode.window.showInputBox({
+      title: "Custom inline suggestions model id",
+      value: current,
+      prompt: "Any Poolside model id; the vetted list is a starting point, not a restriction.",
+    });
+    if (value === undefined || !value.trim()) return;
+    await configuration.update(INLINE_SUGGESTIONS_MODEL_SETTING, value.trim(), vscode.ConfigurationTarget.Global);
+    void vscode.window.showInformationMessage(`Poolside inline suggestions model set to ${value.trim()}.`);
+    return;
+  }
+  await configuration.update(INLINE_SUGGESTIONS_MODEL_SETTING, picked.action, vscode.ConfigurationTarget.Global);
+  void vscode.window.showInformationMessage(`Poolside inline suggestions model set to ${picked.action}. Applies on the next keystroke.`);
 }
 
 async function testConnection(provider: PoolsideProvider, output: vscode.OutputChannel): Promise<void> {

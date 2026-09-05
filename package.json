@@ -38,6 +38,10 @@
   "contributes": {
     "commands": [
       {
+        "command": "poolsideCopilot.setInlineSuggestionsModel",
+        "title": "Poolside: Set Inline Suggestions Model"
+      },
+      {
         "command": "poolsideCopilot.manage",
         "title": "Poolside: Manage Connection"
       },
