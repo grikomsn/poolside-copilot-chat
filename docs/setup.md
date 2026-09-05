@@ -41,8 +41,20 @@ Provider-entry model discovery uses `https://inference.poolside.ai/v1/models`, s
 | `poolsideCopilot.streamIdleTimeoutSeconds` | `120` | Maximum time without streamed response data before aborting |
 | `poolsideCopilot.catalogCacheMinutes` | `5` | How long the hosted-model catalog is reused before refreshing |
 | `poolsideCopilot.debugLogging` | `false` | Log request, stream, usage, and model-discovery metadata to the Poolside output channel |
+| `poolsideCopilot.inlineSuggestions` | `false` | Experimental ghost-text inline completions while typing |
+| `poolsideCopilot.inlineSuggestionsModel` | `poolside/laguna-xs-2.1` | Model used for inline completions; `laguna-s-2.1` is an alternate |
+| `poolsideCopilot.inlineSuggestionsChatInput` | `false` | Also offer suggestions inside the Copilot Chat prompt box |
+| `poolsideCopilot.inlineSuggestionsDebounceMs` | `300` | Debounce between typing and a completion request |
+| `poolsideCopilot.inlineSuggestionsTimeoutMs` | `3000` | Per-request completion timeout |
+| `poolsideCopilot.inlineSuggestionsMaxTokens` | `128` | Tokens generated per suggestion |
+| `poolsideCopilot.inlineSuggestionsPrefixLines` | `10` | Document lines sent before the cursor |
+| `poolsideCopilot.inlineSuggestionsSuffixChars` | `300` | Document characters sent after the cursor |
 
 Prompts and API keys are never intentionally written to the output channel.
+
+## Inline suggestions
+
+Inline code suggestions are experimental and off by default. When enabled, each suggestion sends a bounded fill-in-the-middle prompt (10 lines before the cursor, 300 characters after, both configurable) with FIM delimiter tokens to the fixed `/chat/completions` endpoint. Following the live benchmark, `laguna-xs-2.1` is requested with no thinking field (396ms TTFB, zero hidden reasoning — sending the thinking switch there perturbs output), while `laguna-s-2.1` receives `chat_template_kwargs.enable_thinking: false`. Hidden reasoning deltas are discarded engine-side, and the Copilot Chat prompt box is excluded unless `poolsideCopilot.inlineSuggestionsChatInput` is enabled. Note that `poolside/laguna-m.1` no longer exists upstream (`/v1/models` lists only xs and s); use one of those two.
 
 ## Troubleshooting
 

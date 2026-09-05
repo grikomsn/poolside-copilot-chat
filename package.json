@@ -69,6 +69,56 @@
     "configuration": {
       "title": "Poolside for Copilot Chat",
       "properties": {
+        "poolsideCopilot.inlineSuggestions": {
+          "type": "boolean",
+          "default": false,
+          "description": "Experimental. Provide ghost-text inline completions while typing, powered by Poolside-hosted Laguna models. Credentials, prompts, and document context are never logged."
+        },
+        "poolsideCopilot.inlineSuggestionsModel": {
+          "type": "string",
+          "default": "poolside/laguna-xs-2.1",
+          "description": "Model id used for inline completions. laguna-xs-2.1 measured fastest and cleanest; laguna-s-2.1 is an alternate that receives an explicit thinking-off switch."
+        },
+        "poolsideCopilot.inlineSuggestionsChatInput": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also offer inline completions inside the Copilot Chat prompt box."
+        },
+        "poolsideCopilot.inlineSuggestionsDebounceMs": {
+          "type": "number",
+          "default": 300,
+          "minimum": 50,
+          "maximum": 2000,
+          "description": "Debounce window in milliseconds between typing and an inline completion request."
+        },
+        "poolsideCopilot.inlineSuggestionsTimeoutMs": {
+          "type": "number",
+          "default": 3000,
+          "minimum": 500,
+          "maximum": 15000,
+          "description": "Per-request timeout in milliseconds for inline completions."
+        },
+        "poolsideCopilot.inlineSuggestionsMaxTokens": {
+          "type": "number",
+          "default": 128,
+          "minimum": 16,
+          "maximum": 1024,
+          "description": "Maximum tokens generated per inline completion."
+        },
+        "poolsideCopilot.inlineSuggestionsPrefixLines": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Lines of document context sent before the cursor."
+        },
+        "poolsideCopilot.inlineSuggestionsSuffixChars": {
+          "type": "number",
+          "default": 300,
+          "minimum": 0,
+          "maximum": 5000,
+          "description": "Characters of document context sent after the cursor."
+        },
         "poolsideCopilot.reasoningEffort": {
           "type": "string",
           "enum": [
