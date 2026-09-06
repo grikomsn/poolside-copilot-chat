@@ -7,7 +7,7 @@
  * cancellation-aware; superseded runs are aborted upstream.
  */
 
-import { buildCompletionPrompt } from "./prompt";
+import { buildCompletionPrompt, stripSpecialTokens } from "./prompt";
 import type { CompletionContext, CompletionResult } from "./types";
 
 export type Fetcher = typeof fetch;
@@ -76,8 +76,8 @@ export class ChatCompletionEngine {
       throw new Error(`Poolside completion request failed (${response.status})`);
     }
     if (!response.body) throw new Error("Poolside returned an empty completion stream");
-    const text = await readContentStream(response.body, requestSignal);
-    return { text: text.trim() ? text : undefined, durationMs: Date.now() - started };
+    const clean = stripSpecialTokens(await readContentStream(response.body, requestSignal));
+    return { text: clean.trim() ? clean : undefined, durationMs: Date.now() - started };
   }
 }
 

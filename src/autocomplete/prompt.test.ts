@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildCompletionPrompt, COMPLETION_SYSTEM_PROMPT, wantsThinkingSwitch } from "./prompt";
+import { buildCompletionPrompt, COMPLETION_SYSTEM_PROMPT, stripSpecialTokens, wantsThinkingSwitch } from "./prompt";
 
 test("emulates fill-in-the-middle with FIM tokens", () => {
   const prompt = buildCompletionPrompt("before", "after", "poolside/laguna-xs-2.1");
@@ -29,4 +29,13 @@ test("maps model ids to the thinking-switch decision", () => {
   assert.equal(wantsThinkingSwitch("poolside/laguna-s-2.1"), true);
   assert.equal(wantsThinkingSwitch("poolside/laguna-xs-2.1"), false);
   assert.equal(wantsThinkingSwitch("poolside/laguna-m.1"), false);
+});
+
+test("strips echoed special tokens from suggestions", () => {
+  assert.equal(stripSpecialTokens("<|file_separator|>    out.append(x)"), "    out.append(x)");
+  assert.equal(stripSpecialTokens("    out.append(x)<|fim_middle|>"), "    out.append(x)");
+  assert.equal(stripSpecialTokens("<|fim_prefix|>a<|fim_suffix|>b<|fim_middle|>c"), "abc");
+  assert.equal(stripSpecialTokens("    out.append(x)"), "    out.append(x)");
+  assert.equal(stripSpecialTokens("echo <| b; # no closing pair"), "echo <| b; # no closing pair");
+  assert.equal(stripSpecialTokens("<|file_separator|>"), "");
 });
