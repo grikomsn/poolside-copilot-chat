@@ -19,6 +19,10 @@ There is no local proxy or project-operated relay. Prompts, conversation context
 
 The inference base URL is fixed in the extension instead of being workspace-configurable. This prevents an untrusted workspace setting from redirecting the saved API key to another server.
 
+## Inline completions
+
+When `poolsideCopilot.inlineSuggestions` is enabled, each suggestion sends a bounded window of the current document (a fixed number of lines before the cursor and a bounded suffix after it) plus the stored API key to the same `/chat/completions` endpoint. Upstream error bodies are never surfaced or logged because they can echo prompt context, and suggestion text flows only into the editor's ghost text. The feature is disabled by default.
+
 ## Logging
 
 Debug logging is disabled by default. When enabled, the Poolside output channel records model discovery, request metadata, token usage, and errors; it does not intentionally log prompts or API keys.
