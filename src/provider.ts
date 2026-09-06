@@ -14,6 +14,9 @@ import {
   DEFAULT_REASONING_EFFORT,
   applyReasoningEffort,
   buildModelConfigurationSchema,
+  contextSizeOptions,
+  resolveContextCap,
+  resolveContextSize,
   resolveReasoningEffort,
   type ReasoningEffort,
 } from "./models/options";
@@ -127,7 +130,7 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
       ...(credentialRef === "legacy" && !apiKey
         ? { requiresAuthorization: { label: "Configure Poolside API key" } }
         : {}),
-      configurationSchema: buildModelConfigurationSchema(defaultEffort),
+      configurationSchema: buildModelConfigurationSchema(defaultEffort, contextSizeOptions(metadata.contextLength)),
       capabilities: {
         imageInput: false,
         toolCalling: true,
@@ -154,6 +157,7 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
       reasoningEffort,
       model.maxOutputTokens,
       this.configuration.get("maxOutputTokens", 0),
+      resolveContextCap(resolveContextSize(options.modelConfiguration), model.maxInputTokens),
     );
     const controller = new AbortController();
     const cancellation = token.onCancellationRequested(() => controller.abort());
