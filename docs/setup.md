@@ -36,7 +36,7 @@ Provider-entry model discovery uses `https://inference.poolside.ai/v1/models`, s
 | Setting | Default | Purpose |
 | --- | ---: | --- |
 | `poolsideCopilot.reasoningEffort` | `max` | Default Poolside thinking mode (`max` or `none`); a Copilot model-picker selection overrides it |
-| `poolsideCopilot.maxOutputTokens` | `0` | Maximum output tokens requested from Poolside; `0` uses the selected model's advertised maximum |
+| `poolsideCopilot.maxOutputTokens` | `0` | Maximum output tokens requested from Poolside; `0` reserves 32,768 output tokens; positive values are capped by the model output capability and context window |
 | `poolsideCopilot.requestTimeoutSeconds` | `600` | Inference request timeout in seconds |
 | `poolsideCopilot.streamIdleTimeoutSeconds` | `120` | Maximum time without streamed response data before aborting |
 | `poolsideCopilot.catalogCacheMinutes` | `5` | How long the hosted-model catalog is reused before refreshing |
@@ -65,3 +65,29 @@ Inline code suggestions are experimental and off by default. When enabled, each 
 - **A request times out:** increase `poolsideCopilot.requestTimeoutSeconds`; agentic coding requests can run longer than ordinary chat.
 - **An image is rejected:** hosted Laguna models are text-only. Remove image attachments and retry.
 - **Need a diagnostic snapshot:** run **Poolside: Show Diagnostics** and include the report when filing an issue. The report never includes the API key.
+
+## Context window size
+
+Each model entry exposes a Context Window control in the Copilot Chat model
+picker (`src/models/options.ts`). The options are Auto (the default), fixed
+64K, 128K, and 200K tiers that fit below the model's registered input limit,
+and Maximum. Auto and Maximum keep the default behavior.
+
+A specific tier acts as a local upper limit: the selection is stored per model
+by VS Code, never exceeds the model's registered input limit, and when the
+converted messages exceed the selected tier the oldest conversation turns are
+trimmed before the request is built (`src/provider/history-trim.ts`). The
+first message, the current turn, and tool-call/result adjacency are always
+preserved, and models without a fitting tier keep their picker unchanged.
+
+### Context indicator compatibility
+
+Auto uses the model's registered input budget. The context indicator shows that
+input budget plus the response reserve; a numeric context tier replaces only
+the input budget. Auto is stored as `"auto"`, because VS Code interprets numeric
+zero as a zero-token input window. If an existing chat still shows only the
+output limit after upgrading, select Auto again in its Context Window control
+to replace a saved zero selection.
+
+Context Window uses the dedicated tokens group so it remains visible beside
+reasoning controls. VS Code renders only one enum property per group.

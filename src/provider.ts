@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { PoolsideAuth } from "./auth/auth";
 import { messageOf } from "./errors";
 import {
+  advertisedModelLimits,
   FALLBACK_MODEL_METADATA,
   FALLBACK_MODELS,
   formatTokenLimit,
@@ -14,6 +15,9 @@ import {
   DEFAULT_REASONING_EFFORT,
   applyReasoningEffort,
   buildModelConfigurationSchema,
+  contextSizeOptions,
+  resolveContextCap,
+  resolveContextSize,
   resolveReasoningEffort,
   type ReasoningEffort,
 } from "./models/options";
@@ -120,14 +124,13 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
         ? (apiKey ? "Poolside Platform" : "Poolside API key required")
         : `Poolside Platform · ${credentialRef.slice(0, 8)}`,
       tooltip: `${metadata.id} via the hosted Poolside API · ${formatTokenLimit(metadata.contextLength)} context · ${formatTokenLimit(metadata.maxOutputTokens)} max output · text only`,
-      maxInputTokens: metadata.contextLength,
-      maxOutputTokens: metadata.maxOutputTokens,
+      ...advertisedModelLimits(metadata, this.configuration.get("maxOutputTokens", 0)),
       isUserSelectable: true,
       ...(credentialRef !== "legacy" ? { isBYOK: true } : {}),
       ...(credentialRef === "legacy" && !apiKey
         ? { requiresAuthorization: { label: "Configure Poolside API key" } }
         : {}),
-      configurationSchema: buildModelConfigurationSchema(defaultEffort),
+      configurationSchema: buildModelConfigurationSchema(defaultEffort, contextSizeOptions(advertisedModelLimits(metadata, this.configuration.get("maxOutputTokens", 0)).maxInputTokens)),
       capabilities: {
         imageInput: false,
         toolCalling: true,
@@ -154,6 +157,7 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
       reasoningEffort,
       model.maxOutputTokens,
       this.configuration.get("maxOutputTokens", 0),
+      resolveContextCap(resolveContextSize(options.modelConfiguration), model.maxInputTokens),
     );
     const controller = new AbortController();
     const cancellation = token.onCancellationRequested(() => controller.abort());

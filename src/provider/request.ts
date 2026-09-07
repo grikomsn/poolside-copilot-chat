@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { resolveMaxOutputTokens } from "../models/catalog";
 import { applyReasoningEffort, type ReasoningEffort } from "../models/options";
+import { trimHistoryToFit } from "./history-trim";
 import { convertMessages } from "./messages";
 
 export function buildRequest(
@@ -10,8 +11,13 @@ export function buildRequest(
   reasoningEffort: ReasoningEffort,
   advertisedMaxTokens: number,
   configuredMaxTokens: number,
+  contextCapTokens?: number,
 ): Record<string, unknown> {
   const maxTokens = resolveMaxOutputTokens(configuredMaxTokens, advertisedMaxTokens);
+  const convertedMessages = convertMessages(messages);
+  const requestMessages = contextCapTokens === undefined
+    ? convertedMessages
+    : [...trimHistoryToFit(convertedMessages, contextCapTokens).items];
   const tools = (options.tools ?? []).map((tool) => ({
     type: "function",
     function: {
@@ -22,7 +28,7 @@ export function buildRequest(
   }));
   return applyReasoningEffort({
     model,
-    messages: convertMessages(messages),
+    messages: requestMessages,
     stream: true,
     stream_options: { include_usage: true },
     max_completion_tokens: maxTokens,
