@@ -123,14 +123,14 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
         ? (apiKey ? "Poolside Platform" : "Poolside API key required")
         : `Poolside Platform · ${credentialRef.slice(0, 8)}`,
       tooltip: `${metadata.id} via the hosted Poolside API · ${formatTokenLimit(metadata.contextLength)} context · ${formatTokenLimit(metadata.maxOutputTokens)} max output · text only`,
-      maxInputTokens: metadata.contextLength,
+      maxInputTokens: Math.max(1, metadata.contextLength - metadata.maxOutputTokens),
       maxOutputTokens: metadata.maxOutputTokens,
       isUserSelectable: true,
       ...(credentialRef !== "legacy" ? { isBYOK: true } : {}),
       ...(credentialRef === "legacy" && !apiKey
         ? { requiresAuthorization: { label: "Configure Poolside API key" } }
         : {}),
-      configurationSchema: buildModelConfigurationSchema(defaultEffort, contextSizeOptions(metadata.contextLength)),
+      configurationSchema: buildModelConfigurationSchema(defaultEffort, contextSizeOptions(Math.max(1, metadata.contextLength - metadata.maxOutputTokens))),
       capabilities: {
         imageInput: false,
         toolCalling: true,
