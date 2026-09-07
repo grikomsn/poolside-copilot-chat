@@ -2,7 +2,7 @@
   "name": "poolside-copilot-chat",
   "displayName": "Poolside for GitHub Copilot Chat",
   "description": "Use hosted Poolside coding models in GitHub Copilot Chat with your Poolside API key.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "grikomsn",
   "icon": "assets/icon.png",
   "license": "MIT",
