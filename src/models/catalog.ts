@@ -1,5 +1,4 @@
 export const FALLBACK_MODELS = [
-  "poolside/laguna-m.1",
   "poolside/laguna-xs-2.1",
   "poolside/laguna-s-2.1",
 ] as const;
@@ -37,12 +36,6 @@ export interface PoolsideApiModel {
 }
 
 export const FALLBACK_MODEL_METADATA: readonly PoolsideModelMetadata[] = [
-  {
-    id: "poolside/laguna-m.1",
-    version: "1",
-    contextLength: 262_144,
-    maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
-  },
   {
     id: "poolside/laguna-xs-2.1",
     version: "2.1",
@@ -95,20 +88,14 @@ export function resolveMaxOutputTokens(configured: number, advertised: number): 
 }
 
 export function orderModelMetadata(models: readonly PoolsideApiModel[]): PoolsideModelMetadata[] {
-  // `/models` is account-scoped, whereas Poolside's documented Laguna family is
-  // a stable picker baseline. Keep the baseline when a deployment omits a model
-  // from discovery, then let any advertised limits override it.
-  const metadataById = new Map<string, PoolsideModelMetadata>(
-    FALLBACK_MODEL_METADATA.map((metadata) => [metadata.id, metadata]),
-  );
-  const discoveredIds = new Set<string>();
+  const metadataById = new Map<string, PoolsideModelMetadata>();
   for (const model of models) {
     const metadata = modelMetadataFromApi(model);
-    if (metadata && !discoveredIds.has(metadata.id)) {
+    if (metadata && !metadataById.has(metadata.id)) {
       metadataById.set(metadata.id, metadata);
-      discoveredIds.add(metadata.id);
     }
   }
+  if (!metadataById.size) return [...FALLBACK_MODEL_METADATA];
   return orderModels([...metadataById.keys()]).flatMap((id) => {
     const metadata = metadataById.get(id);
     return metadata ? [metadata] : [];
@@ -158,4 +145,16 @@ export function formatModelName(id: string): string {
       return part.charAt(0).toUpperCase() + part.slice(1);
     })
     .join(" ");
+}
+
+/** Reserve a practical response budget, rather than the entire output capability. */
+export function advertisedModelLimits(
+  model: Pick<PoolsideModelMetadata, "contextLength" | "maxOutputTokens">,
+  configuredOutput = 0,
+): { maxInputTokens: number; maxOutputTokens: number } {
+  const requested = Number.isFinite(configuredOutput) && configuredOutput > 0
+    ? Math.floor(configuredOutput)
+    : 32_768;
+  const output = Math.max(1, Math.min(model.maxOutputTokens, requested, model.contextLength - 1));
+  return { maxInputTokens: Math.max(1, model.contextLength - output), maxOutputTokens: output };
 }

@@ -43,7 +43,7 @@ test("applies Poolside's native thinking toggle", () => {
 });
 
 test("offers context tiers below the registered input limit", () => {
-  assert.deepEqual(contextSizeOptions(1_048_576)?.map((option) => option.value), [0, 65_536, 131_072, 200_000, 1_048_576]);
+  assert.deepEqual(contextSizeOptions(1_048_576)?.map((option) => option.value), ["auto", 65_536, 131_072, 200_000, 1_048_576]);
   assert.deepEqual(contextSizeOptions(1_048_576)?.map((option) => option.label), ["Auto", "64K", "128K", "200K", "Maximum"]);
   assert.equal(contextSizeOptions(65_536), undefined);
   assert.equal(contextSizeOptions(32_000), undefined);
@@ -66,10 +66,24 @@ test("reads the context size from picker configuration", () => {
 test("exposes the Context Window control alongside thinking modes", () => {
   const schema = buildModelConfigurationSchema("max", contextSizeOptions(1_048_576));
   assert.deepEqual(schema.properties.reasoningEffort.enum, REASONING_EFFORTS);
-  assert.deepEqual(schema.properties.contextSize.enum, [0, 65_536, 131_072, 200_000, 1_048_576]);
-  assert.equal(schema.properties.contextSize.default, 0);
-  assert.equal(schema.properties.contextSize.group, "navigation");
+  assert.deepEqual(schema.properties.contextSize.enum, ["auto", 65_536, 131_072, 200_000, 1_048_576]);
+  assert.equal(schema.properties.contextSize.default, "auto");
+  assert.equal(schema.properties.contextSize.group, "tokens");
+  assert.equal(Object.entries(schema!.properties!).find(([, property]) => property.group === "tokens")?.[0], "contextSize");
 
   const plain = buildModelConfigurationSchema("max");
   assert.equal("contextSize" in plain.properties, false);
+});
+
+// Mirrors VS Code's context indicator contract: numeric selections replace input,
+// while a nonnumeric Auto selection falls back to the registered input limit.
+test("Auto preserves the full context window in the VS Code indicator", () => {
+  for (const input of [78_000, 244_800, 983_040]) {
+    const options = contextSizeOptions(input)!;
+    const auto = options.find((option) => option.label === "Auto")!;
+    const output = 16_384;
+    const displayedInput = typeof auto.value === "number" ? auto.value : input;
+    assert.equal(displayedInput + output, input + output);
+    assert.ok(options.every((option) => typeof option.value !== "number" || option.value > 0));
+  }
 });

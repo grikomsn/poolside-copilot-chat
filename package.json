@@ -140,7 +140,7 @@
           "type": "number",
           "default": 0,
           "minimum": 0,
-          "description": "Maximum output tokens requested from Poolside hosted models. Use 0 to use the selected model's advertised maximum."
+          "description": "Maximum output tokens requested from Poolside hosted models. Use 0 to reserve 32,768 response tokens. Positive values are capped by the model output capability and context window."
         },
         "poolsideCopilot.requestTimeoutSeconds": {
           "type": "number",
