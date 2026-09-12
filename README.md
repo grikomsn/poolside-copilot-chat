@@ -22,7 +22,7 @@ This extension is a native VS Code `LanguageModelChatProvider`. It validates a u
 - Multiple Poolside API-key entries in VS Code's Manage Language Models flow
 - Live hosted-model discovery with sensible Laguna fallbacks
 - Streaming text and model reasoning
-- Configurable reasoning effort in the Copilot model picker (`none`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`)
+- Configurable reasoning effort in the Copilot model picker (`max` for thinking on, `none` for off)
 - Agent mode function-tool calls
 - Native VS Code context-window accounting from Poolside usage data
 - No proxy, bundled server, or third-party relay
@@ -45,6 +45,7 @@ Poolside's hosted Laguna models are currently text-only. Image attachments are d
 ## Documentation
 
 - [Setup, settings, and troubleshooting](https://github.com/grikomsn/poolside-copilot-chat/blob/main/docs/setup.md)
+- [Models and pricing](https://github.com/grikomsn/poolside-copilot-chat/blob/main/docs/models.md)
 - [API key and security model](https://github.com/grikomsn/poolside-copilot-chat/blob/main/docs/security.md)
 - [Development and releases](https://github.com/grikomsn/poolside-copilot-chat/blob/main/docs/development.md)
 
