@@ -56,13 +56,13 @@ test("provides current per-model Laguna fallback metadata", () => {
     id: "poolside/laguna-xs-2.1",
     version: "2.1",
     contextLength: 262_144,
-    maxOutputTokens: 262_144,
+    maxOutputTokens: 32_768,
   });
   assert.deepEqual(getModelMetadata("poolside/laguna-s-2.1"), {
     id: "poolside/laguna-s-2.1",
     version: "2.1",
-    contextLength: 1_048_576,
-    maxOutputTokens: 262_144,
+    contextLength: 262_144,
+    maxOutputTokens: 32_768,
   });
   assert.equal(formatTokenLimit(1_048_576), "1M");
   assert.equal(formatTokenLimit(262_144), "256K");
@@ -80,7 +80,7 @@ test("uses exactly the live catalog and enriches its advertised limits", () => {
       id: "poolside/laguna-xs-2.1",
       version: "2.1",
       contextLength: 262_144,
-      maxOutputTokens: 262_144,
+      maxOutputTokens: 32_768,
     },
     {
       id: "poolside/laguna-s-2.1",
