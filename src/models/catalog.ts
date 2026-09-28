@@ -4,9 +4,10 @@ export const FALLBACK_MODELS = [
 ] as const;
 
 export const DEFAULT_MAX_INPUT_TOKENS = 262_144;
-// Poolside-hosted inference defaults to 32K output tokens but documents a
-// 262,144-token maximum. VS Code's catalog metadata describes the limit, not
-// the server default.
+// The Poolside-hosted `/models` response advertises 32,768
+// `max_completion_tokens` per model; 262,144 remains the documented server
+// ceiling for unknown models. VS Code's catalog metadata describes the
+// limit, not the server default.
 export const DEFAULT_MAX_OUTPUT_TOKENS = 262_144;
 
 export interface PoolsideModelMetadata {
@@ -35,18 +36,21 @@ export interface PoolsideApiModel {
   readonly max_completion_tokens?: unknown;
 }
 
+// Live-served limits from `GET /v1/models`, verified 2026-09-28: both Laguna
+// models advertise a 262,144-token context (the earlier 1M S-2.1 context no
+// longer appears in the served catalog) and 32,768 max completion tokens.
 export const FALLBACK_MODEL_METADATA: readonly PoolsideModelMetadata[] = [
   {
     id: "poolside/laguna-xs-2.1",
     version: "2.1",
     contextLength: 262_144,
-    maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
+    maxOutputTokens: 32_768,
   },
   {
     id: "poolside/laguna-s-2.1",
     version: "2.1",
-    contextLength: 1_048_576,
-    maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
+    contextLength: 262_144,
+    maxOutputTokens: 32_768,
   },
 ];
 

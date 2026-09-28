@@ -13,9 +13,12 @@ authoritative whenever available.
 
 The hosted catalog currently exposes two Laguna models:
 
-- **`poolside/laguna-s-2.1`** — the larger-context model (1M-token context).
+- **`poolside/laguna-s-2.1`** — the capable reasoning model (256K-token
+  context as served by the hosted API).
 - **`poolside/laguna-xs-2.1`** — the fast, low-latency model (256K-token
   context), used for inline suggestions by default.
+
+Both models advertise 32K max completion tokens in the hosted catalog.
 
 See the [Poolside Platform](https://platform.poolside.ai) for the current
 catalog.
