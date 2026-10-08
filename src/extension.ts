@@ -1,16 +1,15 @@
 import * as vscode from "vscode";
 import { registerInlineCompletions } from "./autocomplete";
-import { PoolsideAuth } from "./auth/auth";
+import { NativeEntries } from "./auth/auth";
 import { registerCommands } from "./commands/commands";
-import { messageOf } from "./errors";
 import { PoolsideProvider } from "./provider";
 import { extensionUserAgent } from "./transport/protocol";
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("Poolside");
-  const auth = new PoolsideAuth(context.secrets);
+  const entries = new NativeEntries(context.globalState);
   const provider = new PoolsideProvider(
-    auth,
+    entries,
     output,
     extensionUserAgent(context.extension.packageJSON.version, vscode.version),
   );
@@ -24,9 +23,9 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
     vscode.lm.registerLanguageModelChatProvider("poolside", provider),
-    ...registerCommands(auth, provider, output),
+    ...registerCommands(provider, output),
     registerInlineCompletions(context, {
-      resolveApiKey: () => auth.getApiKey(),
+      resolveApiKey: async () => provider.getInlineApiKey(vscode.workspace.getConfiguration("poolsideCopilot").get("inlineSuggestionsEntry", "")),
       output,
       version: context.extension.packageJSON.version as string,
       vscodeVersion: vscode.version,
@@ -36,10 +35,4 @@ export function activate(context: vscode.ExtensionContext): void {
   output.appendLine(
     `[activate] Poolside for Copilot Chat ${context.extension.packageJSON.version} on VS Code ${vscode.version}`,
   );
-  void auth.hasApiKey().then((configured) => {
-    if (!configured) return;
-    void provider.refreshModels().catch((error) => {
-      output.appendLine(`[models] initial refresh failed: ${messageOf(error)}`);
-    });
-  });
 }

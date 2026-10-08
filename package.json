@@ -46,14 +46,6 @@
         "title": "Poolside: Manage Connection"
       },
       {
-        "command": "poolsideCopilot.configureApiKey",
-        "title": "Poolside: Configure API Key"
-      },
-      {
-        "command": "poolsideCopilot.removeApiKey",
-        "title": "Poolside: Remove API Key"
-      },
-      {
         "command": "poolsideCopilot.refreshModels",
         "title": "Poolside: Refresh Models"
       },
@@ -68,6 +60,22 @@
       {
         "command": "poolsideCopilot.diagnostics",
         "title": "Poolside: Show Diagnostics"
+      },
+      {
+        "command": "poolsideCopilot.selectManagementEntry",
+        "title": "Poolside: Select Management Entry"
+      },
+      {
+        "command": "poolsideCopilot.selectInlineEntry",
+        "title": "Poolside: Select Inline Suggestions Entry"
+      },
+      {
+        "command": "poolsideCopilot.forgetEntry",
+        "title": "Poolside: Forget Loaded Entry"
+      },
+      {
+        "command": "poolsideCopilot.restoreEntry",
+        "title": "Poolside: Restore Forgotten Entry"
       }
     ],
     "configuration": {
@@ -164,6 +172,18 @@
           "type": "boolean",
           "default": false,
           "description": "Log request, stream, usage, and model-discovery metadata to the Poolside output channel. Prompts and API keys are never logged."
+        },
+        "poolsideCopilot.managementEntry": {
+          "type": "string",
+          "default": "",
+          "pattern": "^$|^[a-z0-9][a-z0-9._-]{0,63}$",
+          "description": "Explicit native entryId used for managementEntry. Provision the entry through Manage Language Models. An empty or unavailable selection sends no feature request."
+        },
+        "poolsideCopilot.inlineSuggestionsEntry": {
+          "type": "string",
+          "default": "",
+          "pattern": "^$|^[a-z0-9][a-z0-9._-]{0,63}$",
+          "description": "Explicit native entryId used for inlineSuggestionsEntry. Provision the entry through Manage Language Models. An empty or unavailable selection sends no feature request."
         }
       }
     },
@@ -174,9 +194,16 @@
         "configuration": {
           "type": "object",
           "required": [
+            "entryId",
             "apiKey"
           ],
           "properties": {
+            "entryId": {
+              "type": "string",
+              "title": "Unique entry ID",
+              "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+              "description": "Unique stable entry ID, such as work or personal. Keep it when rotating the API key; use a different ID for each entry."
+            },
             "apiKey": {
               "type": "string",
               "title": "Poolside API Key",
