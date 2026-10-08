@@ -7,7 +7,7 @@ import { extensionUserAgent } from "./transport/protocol";
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("Poolside");
-  const entries = new NativeEntries();
+  const entries = new NativeEntries(context.globalState);
   const provider = new PoolsideProvider(
     entries,
     output,

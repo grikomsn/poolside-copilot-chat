@@ -26,7 +26,8 @@ Provider-entry model discovery uses `https://inference.poolside.ai/v1/models`, s
 | **Poolside: Manage Connection** | Select native management and inline entries, test, refresh, show logs or diagnostics |
 | **Poolside: Select Management Entry** | Select the provisioned entry for testing and refresh |
 | **Poolside: Select Inline Suggestions Entry** | Select the provisioned entry for inline requests |
-| **Poolside: Forget Loaded Entry** | Revoke the in-memory binding; also remove the entry in Manage Language Models |
+| **Poolside: Forget Loaded Entry** | Revoke and block the entry through rediscovery and restart |
+| **Poolside: Restore Forgotten Entry** | Allow fresh native provisioning after forgetting an entry |
 | **Poolside: Refresh Models** | Fetch the current hosted-model list |
 | **Poolside: Test Inference** | Send a small live inference request |
 | **Poolside: Open API Keys** | Open Poolside Platform |

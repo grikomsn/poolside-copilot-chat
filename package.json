@@ -72,6 +72,10 @@
       {
         "command": "poolsideCopilot.forgetEntry",
         "title": "Poolside: Forget Loaded Entry"
+      },
+      {
+        "command": "poolsideCopilot.restoreEntry",
+        "title": "Poolside: Restore Forgotten Entry"
       }
     ],
     "configuration": {

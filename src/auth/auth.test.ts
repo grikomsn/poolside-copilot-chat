@@ -34,18 +34,46 @@ test("missing configured keys revoke the entry instead of reusing a cached key",
   assert.equal(entries.keyForEntry("missing"), undefined);
 });
 
-test("shared credentials survive one removal and expire after the last removal", () => {
+test("shared credentials survive one removal and expire after the last removal", async () => {
   const entries = new NativeEntries();
   const first = entries.register({ entryId: "first", apiKey: " shared " });
   const second = entries.register({ entryId: "second", apiKey: "shared" });
   assert.equal(first.credentialRef, second.credentialRef);
-  entries.forget("first");
+  await entries.forget("first");
   assert.equal(entries.keyForCredential(first.credentialRef), "shared");
   assert.equal(entries.matches(first.entryId, first.credentialRef, first.generation), false);
   assert.equal(entries.matches(second.entryId, second.credentialRef, second.generation), true);
-  entries.forget("second");
+  await entries.forget("second");
   assert.equal(entries.keyForCredential(first.credentialRef), undefined);
   assert.deepEqual(entries.list(), []);
   assert.equal(new NativeEntries().keyForEntry("second"), undefined);
   assert.match(credentialReference("key"), /^[a-f0-9]{16}$/);
+});
+
+test("forgotten IDs stay revoked through rediscovery and restart until explicitly restored", async () => {
+  const values = new Map<string, unknown>();
+  const state = { get: <T>(key: string): T | undefined => values.get(key) as T | undefined,
+    update: async (key: string, ids: readonly string[]): Promise<void> => { values.set(key, [...ids]); } };
+  const entries = new NativeEntries(state);
+  entries.register({ entryId: "work", apiKey: "synthetic-work" });
+  await entries.forget("work");
+  assert.throws(() => entries.register({ entryId: "work", apiKey: "synthetic-work" }), /forgotten/);
+  assert.equal(entries.keyForEntry("work"), undefined);
+  const restarted = new NativeEntries(state);
+  assert.deepEqual(restarted.listForgotten(), ["work"]);
+  assert.throws(() => restarted.register({ entryId: "work", apiKey: "synthetic-work" }), /forgotten/);
+  await restarted.restore("work");
+  assert.equal(restarted.keyForEntry("work"), undefined);
+  const fresh = restarted.register({ entryId: "work", apiKey: "synthetic-work" });
+  assert.equal(restarted.matches(fresh.entryId, fresh.credentialRef, fresh.generation), true);
+  assert.deepEqual(new NativeEntries(state).listForgotten(), []);
+  assert.deepEqual([...values.values()], [[]], "Only alias tombstones are persisted");
+});
+
+test("concurrent forget operations serialize alias-only persistence", async () => {
+  let saved: readonly string[] = [];
+  const entries = new NativeEntries({ get: () => undefined,
+    update: async (_key, ids) => { await Promise.resolve(); saved = [...ids]; } });
+  await Promise.all([entries.forget("work"), entries.forget("personal")]);
+  assert.deepEqual(saved, ["personal", "work"]);
 });

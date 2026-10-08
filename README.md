@@ -46,7 +46,7 @@ Poolside's hosted Laguna models are currently text-only. Image attachments are d
 
 The major release requires native entries with explicit IDs. Command-managed key commands and fallback credentials have been removed. Re-enter keys in **Manage Language Models**, assign a different `entryId` to each entry, and select its models again. No legacy secret or model-ID migration is performed. Keep `entryId` unchanged for later key rotations; stale model handles are rejected until VS Code reloads their current configuration.
 
-Keys are available only after VS Code provisions their entry. After a restart, open the model picker or refresh the native entry before using management or completion commands. Remove the entry in **Manage Language Models** and use **Poolside: Forget Loaded Entry** to immediately revoke its cached binding. Required entry IDs must be unique; reusing one ID represents the same entry’s replacement.
+Keys are available only after VS Code provisions their entry. After a restart, open the model picker or refresh the native entry before using management or completion commands. Use **Poolside: Forget Loaded Entry** to revoke its cached binding and persist an alias-only block through rediscovery and restart. **Poolside: Restore Forgotten Entry** explicitly allows fresh provisioning again; it never recovers a cached key. Delete the native entry in **Manage Language Models** to remove its VS Code-owned credential. Required entry IDs must be unique; reusing one ID represents the same entry’s replacement.
 
 ## Documentation
 

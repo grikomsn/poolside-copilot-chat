@@ -70,9 +70,16 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     try { return this.entries.keyForEntry(entryId); } catch { return undefined; }
   }
 
-  forgetEntry(entryId: string): void {
-    this.entries.forget(entryId);
+  async forgetEntry(entryId: string): Promise<void> {
+    await this.entries.forget(entryId);
     this.pruneCatalogs();
+    this.changeEmitter.fire();
+  }
+
+  getForgottenEntries(): string[] { return this.entries.listForgotten(); }
+
+  async restoreEntry(entryId: string): Promise<void> {
+    await this.entries.restore(entryId);
     this.changeEmitter.fire();
   }
 

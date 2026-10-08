@@ -6,7 +6,7 @@ All API keys belong to native entries in **Manage Language Models** and are supp
 
 Every entry requires a unique `entryId` (1–64 lowercase letters, numbers, dots, underscores or hyphens). Use separate IDs for separate native entries, even if they share a display name. Keep the ID when rotating a key so model selections remain stable. Catalogs and request credentials are scoped by a one-way key fingerprint; model handles also carry an entry generation and are rejected after rotation or removal. Entries sharing the same API key share its credential scope.
 
-Delete or update credentials through **Manage Language Models**. **Poolside: Forget Loaded Entry** immediately revokes the in-memory binding; delete the native entry as well to prevent it loading again on discovery. After a restart, entries become available when VS Code provisions them again. Feature selectors never choose the first available key or another entry.
+Delete or update credentials through **Manage Language Models**. **Poolside: Forget Loaded Entry** revokes the in-memory binding and persists its ID in an alias-only block list, preventing automatic rediscovery or restart from reviving credentials. **Poolside: Restore Forgotten Entry** removes that block and lets VS Code provision a fresh binding. Only forgotten IDs are persisted; no credentials or key fingerprints enter this block list. After a restart, entries become available when VS Code provisions them again. Feature selectors never choose the first available key or another entry.
 
 ## Network destination
 

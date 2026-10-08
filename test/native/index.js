@@ -53,7 +53,9 @@ async function run() {
     return new Response(stream);
   };
   try {
-    const entries = new NativeEntries();
+    const values = new Map();
+    const state = { get: (key) => values.get(key), update: async (key, ids) => values.set(key, [...ids]) };
+    const entries = new NativeEntries(state);
     const provider = new PoolsideProvider(entries, { appendLine() {} }, "native-test", fetcher);
     const prepare = async (entryId, apiKey) => (await provider.provideLanguageModelChatInformation({
       configuration: { entryId, apiKey, name: "Same name" }, silent: true,
@@ -123,7 +125,16 @@ async function run() {
     assert.ok(cancelled > 0);
     assert.equal(parts.at(-1).metadata.vscode_reasoning_done, true);
     assert.equal(lastBody.locked, false);
-    provider.forgetEntry("work");
+    await provider.forgetEntry("work");
+    await assert.rejects(prepare("work", "synthetic-rotated"), /forgotten/);
+    assert.deepEqual(provider.getForgottenEntries(), ["work"]);
+    const restarted = new NativeEntries(state);
+    assert.throws(() => restarted.register({ entryId: "work", apiKey: "synthetic-rotated" }), /forgotten/);
+    await provider.restoreEntry("work");
+    assert.equal(provider.getInlineApiKey("work"), undefined);
+    await prepare("work", "synthetic-restored");
+    assert.equal(provider.getInlineApiKey("work"), "synthetic-restored");
+    await provider.forgetEntry("work");
     assert.equal(provider.getInlineApiKey("work"), undefined);
     assert.equal(provider.getInlineApiKey("personal"), "synthetic-personal");
     assert.equal(new NativeEntries().keyForEntry("personal"), undefined);
@@ -132,6 +143,6 @@ async function run() {
     reporter.report({ toolCalls: [0, 1, 2].map(() => ({ id: "", name: "read", arguments: "{}" })) });
     assert.equal(new Set(missingParts.map((part) => part.callId)).size, 3);
   } finally { source.dispose(); }
-  console.log(JSON.stringify({ provider: "poolside", nativeChecks: "parallel tools, reasoning closure, aliases, CRLF, two entries, follow-up, explicit feature selection, rotation, removal, restart, error, EOF, cancellation, resource cleanup", passed: true }));
+  console.log(JSON.stringify({ provider: "poolside", nativeChecks: "parallel tools, reasoning closure, aliases, CRLF, two entries, follow-up, explicit feature selection, rotation, removal, rediscovery, restart, explicit restoration, error, EOF, cancellation, resource cleanup", passed: true }));
 }
 module.exports = { run };
