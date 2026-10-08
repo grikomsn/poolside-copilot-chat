@@ -3,104 +3,77 @@
 import * as vscode from "vscode";
 import { CONFIG_SECTION, DEFAULT_INLINE_MODEL, INLINE_SUGGESTIONS_MODEL_SETTING } from "../autocomplete/config";
 import { inlineModelChoices } from "../autocomplete/models";
-import { PoolsideAuth } from "../auth/auth";
 import { messageOf } from "../errors";
 import { API_BASE, PoolsideProvider } from "../provider";
 
 const API_KEYS_URL = "https://platform.poolside.ai/";
 
 export function registerCommands(
-  auth: PoolsideAuth,
   provider: PoolsideProvider,
   output: vscode.OutputChannel,
 ): vscode.Disposable[] {
   return [
-    vscode.commands.registerCommand("poolsideCopilot.manage", () => manage(auth, provider, output)),
-    vscode.commands.registerCommand("poolsideCopilot.configureApiKey", () => configureApiKey(provider, output)),
-    vscode.commands.registerCommand("poolsideCopilot.removeApiKey", () => removeApiKey(provider)),
+    vscode.commands.registerCommand("poolsideCopilot.selectManagementEntry", () => selectEntry(provider, "managementEntry")),
+    vscode.commands.registerCommand("poolsideCopilot.selectInlineEntry", () => selectEntry(provider, "inlineSuggestionsEntry")),
+    vscode.commands.registerCommand("poolsideCopilot.forgetEntry", () => forgetEntry(provider)),
+    vscode.commands.registerCommand("poolsideCopilot.manage", () => manage(provider, output)),
     vscode.commands.registerCommand("poolsideCopilot.refreshModels", () => refreshModels(provider)),
     vscode.commands.registerCommand("poolsideCopilot.setInlineSuggestionsModel", () => setInlineSuggestionsModel()),
     vscode.commands.registerCommand("poolsideCopilot.testConnection", () => testConnection(provider, output)),
     vscode.commands.registerCommand("poolsideCopilot.openApiKeys", () => openApiKeys()),
-    vscode.commands.registerCommand("poolsideCopilot.diagnostics", () => diagnostics(auth, output)),
+    vscode.commands.registerCommand("poolsideCopilot.diagnostics", () => diagnostics(provider, output)),
   ];
 }
 
 async function manage(
-  auth: PoolsideAuth,
   provider: PoolsideProvider,
   output: vscode.OutputChannel,
 ): Promise<void> {
-  const configured = await auth.hasApiKey();
-  const choices = configured
-    ? [
-        { label: "$(check) Test Poolside inference", action: "test" },
-        { label: "$(refresh) Refresh hosted models", action: "refresh" },
-        { label: "$(zap) Set inline suggestions model", action: "inlineModel" },
-        { label: "$(key) Replace API key", action: "configure" },
-        { label: "$(link-external) Open Poolside API keys", action: "open" },
-        { label: "$(output) Show Poolside logs", action: "logs" },
-        { label: "$(info) Show diagnostics", action: "diagnostics" },
-        { label: "$(trash) Remove API key", action: "remove" },
-      ]
-    : [
-        { label: "$(key) Configure Poolside API key", action: "configure" },
-        { label: "$(link-external) Open Poolside API keys", action: "open" },
-        { label: "$(output) Show Poolside logs", action: "logs" },
-      ];
-  const picked = await vscode.window.showQuickPick(choices, {
-    title: `Poolside Platform — API key ${configured ? "configured" : "not configured"}`,
-  });
+  const choices = [
+    { label: "$(settings) Manage Language Models", action: "models" },
+    { label: "$(account) Select entry for management", action: "managementEntry" },
+    { label: "$(edit) Select inline suggestions entry", action: "inlineEntry" },
+    { label: "$(check) Test Poolside inference", action: "test" },
+    { label: "$(refresh) Refresh hosted models", action: "refresh" },
+    { label: "$(zap) Set inline suggestions model", action: "inlineModel" },
+    { label: "$(link-external) Open Poolside API keys", action: "open" },
+    { label: "$(output) Show Poolside logs", action: "logs" },
+    { label: "$(info) Show diagnostics", action: "diagnostics" },
+    { label: "$(trash) Forget loaded entry", action: "forget" },
+  ];
+  const picked = await vscode.window.showQuickPick(choices, { title: "Poolside — native provider entries" });
   if (!picked) return;
-  if (picked.action === "configure") await configureApiKey(provider, output);
+  if (picked.action === "models") await vscode.commands.executeCommand("workbench.action.chat.manage");
+  else if (picked.action === "managementEntry") await selectEntry(provider, "managementEntry");
   else if (picked.action === "refresh") await refreshModels(provider);
-  else if (picked.action === "inlineModel") await setInlineSuggestionsModel();
   else if (picked.action === "test") await testConnection(provider, output);
   else if (picked.action === "open") await openApiKeys();
   else if (picked.action === "logs") output.show(true);
-  else if (picked.action === "diagnostics") await diagnostics(auth, output);
-  else if (picked.action === "remove") await removeApiKey(provider);
+  else if (picked.action === "diagnostics") await diagnostics(provider, output);
+  else if (picked.action === "forget") await forgetEntry(provider);
+  else if (picked.action === "inlineEntry") await selectEntry(provider, "inlineSuggestionsEntry");
+  else if (picked.action === "inlineModel") await setInlineSuggestionsModel();
 }
 
-async function configureApiKey(
-  provider: PoolsideProvider,
-  output: vscode.OutputChannel,
-): Promise<boolean> {
-  const apiKey = await vscode.window.showInputBox({
-    title: "Configure Poolside Platform API key",
-    prompt: "The key is validated with Poolside, then stored in VS Code Secret Storage.",
-    placeHolder: "Paste your Poolside API key",
-    password: true,
-    ignoreFocusOut: true,
-    validateInput: (value) => value.trim() ? undefined : "Enter a Poolside API key",
-  });
-  if (!apiKey) return false;
-
-  try {
-    const models = await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification, title: "Validating Poolside API key…" },
-      () => provider.configureApiKey(apiKey),
-    );
-    output.appendLine(`[auth] API key configured; models=${models.join(",")}`);
-    vscode.window.showInformationMessage(`Poolside connected. Found ${models.length} hosted models.`);
-    return true;
-  } catch (error) {
-    const message = messageOf(error);
-    output.appendLine(`[auth] API key validation failed: ${message}`);
-    vscode.window.showErrorMessage(`Poolside API key was not saved: ${message}`);
-    return false;
+async function selectEntry(provider: PoolsideProvider, setting: string): Promise<void> {
+  const entries = provider.getEntries();
+  if (!entries.length) {
+    await vscode.commands.executeCommand("workbench.action.chat.manage");
+    void vscode.window.showInformationMessage("Add an entry with a unique entryId, then open its models to load its credential.");
+    return;
   }
+  const picked = await vscode.window.showQuickPick(entries.map((entry) => ({ label: entry.entryId })), {
+    title: `Poolside — select ${setting}`,
+  });
+  if (picked) await vscode.workspace.getConfiguration("poolsideCopilot").update(setting, picked.label, vscode.ConfigurationTarget.Global);
 }
 
-async function removeApiKey(provider: PoolsideProvider): Promise<void> {
-  const choice = await vscode.window.showWarningMessage(
-    "Remove the Poolside API key from VS Code Secret Storage?",
-    { modal: true },
-    "Remove API Key",
-  );
-  if (choice !== "Remove API Key") return;
-  await provider.clearApiKey();
-  vscode.window.showInformationMessage("Poolside API key removed.");
+async function forgetEntry(provider: PoolsideProvider): Promise<void> {
+  const picked = await vscode.window.showQuickPick(provider.getEntries().map((entry) => ({ label: entry.entryId })), {
+    title: "Forget loaded entry",
+    placeHolder: "Also delete the entry in Manage Language Models to prevent it loading again",
+  });
+  if (picked) provider.forgetEntry(picked.label);
 }
 
 async function refreshModels(provider: PoolsideProvider): Promise<void> {
@@ -154,9 +127,9 @@ async function testConnection(provider: PoolsideProvider, output: vscode.OutputC
       { location: vscode.ProgressLocation.Notification, title: "Testing Poolside inference…" },
       () => provider.testConnection(),
     );
-    output.appendLine(`[test] model=${result.model} effort=${result.reasoningEffort} response=${result.text}`);
+    output.appendLine(`[test] model=${result.model} effort=${result.reasoningEffort}`);
     vscode.window.showInformationMessage(
-      `Poolside verified with ${result.model} (${result.reasoningEffort} effort): ${result.text}`,
+      `Poolside verified with ${result.model} (${result.reasoningEffort} effort).`,
     );
   } catch (error) {
     const message = messageOf(error);
@@ -170,14 +143,14 @@ async function openApiKeys(): Promise<void> {
   if (!opened) vscode.window.showWarningMessage("VS Code could not open Poolside Platform.");
 }
 
-async function diagnostics(auth: PoolsideAuth, output: vscode.OutputChannel): Promise<void> {
+async function diagnostics(provider: PoolsideProvider, output: vscode.OutputChannel): Promise<void> {
   const models = await vscode.lm.selectChatModels({ vendor: "poolside" });
   const lines = [
     "# Poolside for Copilot Chat diagnostics",
     "",
     `- VS Code: ${vscode.version}`,
     `- API endpoint: ${API_BASE}`,
-    `- API key: ${(await auth.hasApiKey()) ? "configured in Secret Storage" : "missing"}`,
+    `- Loaded native entries: ${provider.getEntries().length}`,
     `- Default reasoning effort: ${vscode.workspace.getConfiguration("poolsideCopilot").get("reasoningEffort", "max")}`,
     `- Registered models: ${models.length}`,
     "",

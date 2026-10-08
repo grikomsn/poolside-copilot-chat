@@ -3,12 +3,12 @@
 ## Local workflow
 
 ```bash
-npm install
+npm ci
 npm test
 npm run package
 ```
 
-Tests are colocated with the modules they cover under `src/auth/`, `src/models/`, `src/transport/`, and `src/usage/`. `npm test` performs a clean compile and runs credential-storage, provider-configuration, model-filtering, stream-parser, protocol, and usage tests. `npm run package` validates the project and creates an installable VSIX.
+Tests are colocated with the modules they cover under `src/auth/`, `src/models/`, `src/transport/`, and `src/usage/`. `npm test` performs a clean compile and runs native-entry lifecycle and response-ordering, provider-configuration, model-filtering, stream-parser, protocol, and usage tests. `npm run package` validates the project and creates an installable VSIX.
 
 Install the local build with:
 
@@ -35,3 +35,7 @@ The packaged extension contains compiled runtime files, Marketplace metadata, th
 - [Poolside API overview](https://docs.poolside.ai/api/overview)
 - [OpenAI-compatible API examples](https://docs.poolside.ai/api/openai-api-examples)
 - [Supported Poolside models](https://docs.poolside.ai/get-started/supported-models)
+
+## Native host regression fixture
+
+`test/native/index.js` exports `run()` for an Extension Development Host. It uses real VS Code response constructors with synthetic native-entry configurations and injected HTTP responses. It checks parallel fragmented tool calls, reasoning closure, follow-up results, separate credentials, explicit selectors, rotation/removal, restart, EOF/error rejection, cancellation and reader cleanup. It never reads a real account or writes captured conversations. Paid upstream inference requires a separate live run.

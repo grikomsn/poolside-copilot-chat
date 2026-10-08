@@ -15,13 +15,16 @@ export interface ChatStreamEvent {
 
 export class ChatCompletionStreamParser {
   private buffer = "";
-  private readonly pendingTools = new Map<number, PendingToolCall>();
+  private readonly pendingTools = new Set<PendingToolCall>();
+  private readonly toolIndexes = new Map<number, PendingToolCall>();
+  private readonly toolIds = new Map<string, PendingToolCall>();
+  private readonly completedIds = new Set<string>();
   private lastFinishReason: string | undefined;
 
   get finishReason(): string | undefined { return this.lastFinishReason; }
 
   push(chunk: string): ChatStreamEvent[] {
-    this.buffer += chunk.replace(/\r\n/g, "\n");
+    this.buffer = (this.buffer + chunk).replace(/\r\n/g, "\n");
     const events: ChatStreamEvent[] = [];
     let boundary: number;
     while ((boundary = this.buffer.indexOf("\n\n")) >= 0) {
@@ -38,7 +41,7 @@ export class ChatCompletionStreamParser {
     const trailing = this.parseBlock(this.buffer);
     this.buffer = "";
     if (trailing) events.push(trailing);
-    const tools = this.flushTools();
+    const tools = successfulCompletion(this.lastFinishReason) ? this.flushTools() : [];
     if (tools.length) events.push({ toolCalls: tools });
     return events;
   }
@@ -52,7 +55,7 @@ export class ChatCompletionStreamParser {
       .trim();
     if (!data) return undefined;
     if (data === "[DONE]") {
-      const toolCalls = this.flushTools();
+      const toolCalls = successfulCompletion(this.lastFinishReason) ? this.flushTools() : [];
       return { done: true, ...(toolCalls.length ? { toolCalls } : {}) };
     }
 
@@ -63,6 +66,9 @@ export class ChatCompletionStreamParser {
       return undefined;
     }
 
+    if (!isRecord(json)) return undefined;
+    if (json.error) throw new Error("Poolside returned an error in the response stream");
+
     const choices = Array.isArray(json.choices) ? json.choices : [];
     const choice = isRecord(choices[0]) ? choices[0] : undefined;
     const delta = isRecord(choice?.delta) ? choice.delta : {};
@@ -72,7 +78,7 @@ export class ChatCompletionStreamParser {
       ? choice.finish_reason
       : undefined;
     if (finishReason) this.lastFinishReason = finishReason;
-    const toolCalls = finishReason ? this.flushTools() : [];
+    const toolCalls = successfulCompletion(finishReason) ? this.flushTools() : [];
     const text = typeof delta.content === "string" ? delta.content : undefined;
     const reasoning = [delta.reasoning_content, delta.reasoning]
       .find((value): value is string => typeof value === "string" && value.length > 0);
@@ -92,19 +98,42 @@ export class ChatCompletionStreamParser {
     if (!Array.isArray(value)) return;
     for (const raw of value) {
       if (!isRecord(raw)) continue;
-      const index = typeof raw.index === "number" ? raw.index : this.pendingTools.size;
-      const current = this.pendingTools.get(index) ?? { id: "", name: "", arguments: "" };
-      if (typeof raw.id === "string" && raw.id) current.id = raw.id;
+      const index = typeof raw.index === "number" ? raw.index : undefined;
+      const id = typeof raw.id === "string" && raw.id ? raw.id : undefined;
+      if (id && this.completedIds.has(id)) continue;
+      const indexed = index === undefined ? undefined : this.toolIndexes.get(index);
+      const identified = id ? this.toolIds.get(id) : undefined;
+      if (indexed && identified && indexed !== identified) {
+        throw new Error("Poolside returned conflicting tool-call identities");
+      }
+      let current = indexed ?? identified;
+      if (!current && index === undefined && !id && this.pendingTools.size === 1) {
+        current = this.pendingTools.values().next().value;
+      }
+      if (!current) {
+        current = { id: "", name: "", arguments: "" };
+        this.pendingTools.add(current);
+      }
+      if (index !== undefined) this.toolIndexes.set(index, current);
+      if (id) {
+        current.id = id;
+        this.toolIds.set(id, current);
+      }
       const fn = isRecord(raw.function) ? raw.function : undefined;
-      if (typeof fn?.name === "string") current.name += fn.name;
+      if (typeof fn?.name === "string" && fn.name !== current.name) current.name += fn.name;
       if (typeof fn?.arguments === "string") current.arguments += fn.arguments;
-      this.pendingTools.set(index, current);
     }
   }
 
   private flushTools(): PendingToolCall[] {
-    const tools = [...this.pendingTools.values()].filter((tool) => tool.name).map(completeToolCall);
+    const tools = [...this.pendingTools].map((tool) => {
+      if (!tool.name) throw new Error("Poolside response stream ended with an unnamed tool call");
+      return completeToolCall(tool);
+    });
+    for (const [id] of this.toolIds) this.completedIds.add(id);
     this.pendingTools.clear();
+    this.toolIndexes.clear();
+    this.toolIds.clear();
     return tools;
   }
 }
@@ -129,4 +158,8 @@ function completeToolCall(tool: PendingToolCall): PendingToolCall {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function successfulCompletion(reason: string | undefined): boolean {
+  return reason === "stop" || reason === "tool_calls" || reason === "function_call";
 }

@@ -12,20 +12,21 @@ A paid Copilot plan is not required for a bring-your-own-key language model prov
 
 1. Install the extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=grikomsn.poolside-copilot-chat).
 2. Create a key in [Poolside Platform](https://platform.poolside.ai/).
-3. In Copilot Chat, open the model picker, select **Manage Models**, add a **Poolside** provider entry, and enter the key.
+3. In Copilot Chat, open the model picker, select **Manage Models**, add a **Poolside** provider entry, and enter a unique `entryId` and the key.
 4. Select an available Laguna model.
 
-To use another Poolside account or API key, add another **Poolside** provider entry in **Manage Language Models**. API keys supplied to provider entries are managed by VS Code and are isolated from one another; the legacy **Poolside: Configure API Key** command remains available for command-driven workflows.
+To use another Poolside account or API key, add another **Poolside** provider entry in **Manage Language Models**. Give each entry a unique `entryId`; API keys are managed by VS Code. Keep the ID when rotating its key. Command-managed key workflows have been removed.
 
-Provider-entry model discovery uses `https://inference.poolside.ai/v1/models`, so models added to or removed from your Poolside account are reflected automatically. The legacy **Poolside: Configure API Key** command validates the key with the same endpoint before saving it.
+Provider-entry model discovery uses `https://inference.poolside.ai/v1/models`, so models added to or removed from your Poolside account are reflected automatically.
 
 ## Commands
 
 | Command | Purpose |
 | --- | --- |
-| **Poolside: Manage Connection** | Test, refresh, replace or remove the key, show logs, or open diagnostics |
-| **Poolside: Configure API Key** | Validate and securely save a Poolside Platform API key |
-| **Poolside: Remove API Key** | Delete the key from VS Code Secret Storage |
+| **Poolside: Manage Connection** | Select native management and inline entries, test, refresh, show logs or diagnostics |
+| **Poolside: Select Management Entry** | Select the provisioned entry for testing and refresh |
+| **Poolside: Select Inline Suggestions Entry** | Select the provisioned entry for inline requests |
+| **Poolside: Forget Loaded Entry** | Revoke the in-memory binding; also remove the entry in Manage Language Models |
 | **Poolside: Refresh Models** | Fetch the current hosted-model list |
 | **Poolside: Test Inference** | Send a small live inference request |
 | **Poolside: Open API Keys** | Open Poolside Platform |
@@ -35,6 +36,8 @@ Provider-entry model discovery uses `https://inference.poolside.ai/v1/models`, s
 
 | Setting | Default | Purpose |
 | --- | ---: | --- |
+| `poolsideCopilot.managementEntry` | empty | Native entry for testing and model refresh |
+| `poolsideCopilot.inlineSuggestionsEntry` | empty | Native entry for inline requests; missing entries send no request |
 | `poolsideCopilot.reasoningEffort` | `max` | Default Poolside thinking mode (`max` or `none`); a Copilot model-picker selection overrides it |
 | `poolsideCopilot.maxOutputTokens` | `0` | Maximum output tokens requested from Poolside; `0` reserves 32,768 output tokens; positive values are capped by the model output capability and context window |
 | `poolsideCopilot.requestTimeoutSeconds` | `600` | Inference request timeout in seconds |
@@ -54,14 +57,14 @@ Prompts and API keys are never intentionally written to the output channel.
 
 ## Inline suggestions
 
-Inline code suggestions are experimental and off by default. When enabled, each suggestion sends a bounded fill-in-the-middle prompt (10 lines before the cursor, 300 characters after, both configurable) with FIM delimiter tokens to the fixed `/chat/completions` endpoint. Following the live benchmark, `laguna-xs-2.1` is requested with no thinking field (396ms TTFB, zero hidden reasoning — sending the thinking switch there perturbs output), while `laguna-s-2.1` receives `chat_template_kwargs.enable_thinking: false`. Hidden reasoning deltas are discarded engine-side, and the Copilot Chat prompt box is excluded unless `poolsideCopilot.inlineSuggestionsChatInput` is enabled. Note that `poolside/laguna-m.1` no longer exists upstream (`/v1/models` lists only xs and s); use one of those two.
+Inline code suggestions are experimental and off by default. Select an entry with **Poolside: Select Inline Suggestions Entry** first. When enabled with a provisioned selection, each suggestion sends a bounded fill-in-the-middle prompt (10 lines before the cursor, 300 characters after, both configurable) with FIM delimiter tokens to the fixed `/chat/completions` endpoint. Following the live benchmark, `laguna-xs-2.1` is requested with no thinking field (396ms TTFB, zero hidden reasoning — sending the thinking switch there perturbs output), while `laguna-s-2.1` receives `chat_template_kwargs.enable_thinking: false`. Hidden reasoning deltas are discarded engine-side, and the Copilot Chat prompt box is excluded unless `poolsideCopilot.inlineSuggestionsChatInput` is enabled. Note that `poolside/laguna-m.1` no longer exists upstream (`/v1/models` lists only xs and s); use one of those two.
 
 **Poolside: Set Inline Suggestions Model** (also in the Manage menu) lists the compatible Laguna models with measured badges. A "Use a custom model id…" entry keeps any Poolside model id reachable. The command only writes settings, so changes apply on the next keystroke without a reload.
 
 ## Troubleshooting
 
 - **No Poolside models in the picker:** enable **Poolside** under **Manage Models**, then run **Poolside: Refresh Models**.
-- **The API key is rejected:** create a fresh key in Poolside Platform and run **Poolside: Configure API Key** again.
+- **The API key is rejected:** create a fresh key in Poolside Platform and update the entry through **Manage Language Models**.
 - **A request times out:** increase `poolsideCopilot.requestTimeoutSeconds`; agentic coding requests can run longer than ordinary chat.
 - **An image is rejected:** hosted Laguna models are text-only. Remove image attachments and retry.
 - **Need a diagnostic snapshot:** run **Poolside: Show Diagnostics** and include the report when filing an issue. The report never includes the API key.
