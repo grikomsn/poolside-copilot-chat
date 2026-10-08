@@ -14,7 +14,7 @@
 // printed, logged, or committed.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,7 +52,7 @@ function envKey(name) {
 
 function requireBundled(relative) {
   const resolved = path.join(ROOT, "out", relative);
-  if (!existsSync(resolved)) {
+  if (!existsSync(resolved) || srcNewerThan(resolved)) {
     const compiled = spawnSync("npm", ["run", "compile"], { cwd: ROOT, encoding: "utf8" });
     if (compiled.status) {
       console.error(compiled.stderr);
@@ -60,6 +60,21 @@ function requireBundled(relative) {
     }
   }
   return require_(resolved);
+}
+
+/** True when any TypeScript source is newer than the compiled target. */
+function srcNewerThan(target) {
+  const compiled = statSync(target).mtimeMs;
+  const stack = [path.join(ROOT, "src")];
+  while (stack.length) {
+    const dir = stack.pop();
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (/\.(?:ts|mts)$/.test(entry.name) && statSync(full).mtimeMs > compiled) return true;
+    }
+  }
+  return false;
 }
 
 function fmtNumber(value) {
