@@ -6,6 +6,7 @@ import {
   applyReasoningEffort,
   buildModelConfigurationSchema,
   contextSizeOptions,
+  modelSupportsThinkingSwitch,
   resolveContextCap,
   resolveContextSize,
   resolveReasoningEffort,
@@ -17,6 +18,17 @@ test("exposes Poolside-hosted thinking modes in a native model-picker control", 
   assert.deepEqual(schema.properties.reasoningEffort.enumItemLabels, ["Max", "None"]);
   assert.equal(schema.properties.reasoningEffort.default, "max");
   assert.equal(schema.properties.reasoningEffort.group, "navigation");
+});
+
+test("gates the thinking switch to thinking-capable models", () => {
+  // Live-verified 2026-10-09: laguna-xs-2.1 thinks by default and genuinely
+  // disables with the switch; laguna-s-2.1 never emits reasoning tokens on
+  // any setting, so offering the toggle there is a no-op.
+  assert.equal(modelSupportsThinkingSwitch("poolside/laguna-xs-2.1"), true);
+  assert.equal(modelSupportsThinkingSwitch("poolside/laguna-s-2.1"), false);
+  assert.equal(modelSupportsThinkingSwitch("poolside/laguna-m.1"), false);
+  assert.equal("reasoningEffort" in buildModelConfigurationSchema("max", undefined, false).properties, false);
+  assert.equal("reasoningEffort" in buildModelConfigurationSchema("max", undefined, true).properties, true);
 });
 
 test("per-request effort overrides the workspace default", () => {
@@ -32,13 +44,20 @@ test("unsupported effort safely falls back to max", () => {
 });
 
 test("applies Poolside's native thinking toggle", () => {
-  assert.deepEqual(applyReasoningEffort({ model: "poolside/laguna-m.1" }, "none"), {
-    model: "poolside/laguna-m.1",
+  assert.deepEqual(applyReasoningEffort({ model: "poolside/laguna-xs-2.1" }, "none"), {
+    model: "poolside/laguna-xs-2.1",
     chat_template_kwargs: { enable_thinking: false },
   });
-  assert.deepEqual(applyReasoningEffort({ model: "poolside/laguna-m.1" }, "max"), {
-    model: "poolside/laguna-m.1",
+  assert.deepEqual(applyReasoningEffort({ model: "poolside/laguna-xs-2.1" }, "max"), {
+    model: "poolside/laguna-xs-2.1",
     chat_template_kwargs: { enable_thinking: true },
+  });
+  // Models without a meaningful switch are requested with no thinking field.
+  assert.deepEqual(applyReasoningEffort({ model: "poolside/laguna-s-2.1" }, "max"), {
+    model: "poolside/laguna-s-2.1",
+  });
+  assert.deepEqual(applyReasoningEffort({ model: "poolside/laguna-s-2.1" }, "none"), {
+    model: "poolside/laguna-s-2.1",
   });
 });
 
