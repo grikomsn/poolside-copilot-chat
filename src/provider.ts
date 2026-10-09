@@ -16,6 +16,7 @@ import {
   applyReasoningEffort,
   buildModelConfigurationSchema,
   contextSizeOptions,
+  modelSupportsThinkingSwitch,
   resolveContextCap,
   resolveContextSize,
   resolveReasoningEffort,
@@ -140,7 +141,11 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
       ...advertisedModelLimits(metadata, this.configuration.get("maxOutputTokens", 0)),
       isUserSelectable: true,
       isBYOK: true,
-      configurationSchema: buildModelConfigurationSchema(defaultEffort, contextSizeOptions(advertisedModelLimits(metadata, this.configuration.get("maxOutputTokens", 0)).maxInputTokens)),
+      configurationSchema: buildModelConfigurationSchema(
+        defaultEffort,
+        contextSizeOptions(advertisedModelLimits(metadata, this.configuration.get("maxOutputTokens", 0)).maxInputTokens),
+        modelSupportsThinkingSwitch(metadata.id),
+      ),
       capabilities: {
         imageInput: false,
         toolCalling: true,

@@ -7,6 +7,19 @@ export type ReasoningEffort = typeof REASONING_EFFORTS[number];
 
 export const DEFAULT_REASONING_EFFORT: ReasoningEffort = "max";
 
+/**
+ * Models where the `chat_template_kwargs.enable_thinking` switch perturbs
+ * output instead of controlling reasoning. Live probes (2026-10-09) showed
+ * laguna-s-2.1 never emits reasoning tokens on any setting, while
+ * laguna-xs-2.1 thinks by default and genuinely disables with `none` — so the
+ * toggle is only meaningful (and only offered) on thinking-capable models.
+ */
+const THINKING_SWITCH_MODELS = new Set(["poolside/laguna-xs-2.1"]);
+
+export function modelSupportsThinkingSwitch(modelId: string): boolean {
+  return THINKING_SWITCH_MODELS.has(modelId.toLowerCase());
+}
+
 export function resolveReasoningEffort(
   requestConfiguration: Readonly<Record<string, unknown>> | undefined,
   workspaceDefault: unknown,
@@ -72,6 +85,7 @@ export function resolveContextSize(requestConfiguration: Readonly<Record<string,
 export function buildModelConfigurationSchema(
   defaultEffort: ReasoningEffort = DEFAULT_REASONING_EFFORT,
   contextOptions?: readonly ContextSizeOption[],
+  thinkingSwitch = true,
 ): {
   type: "object";
   properties: Record<string, Record<string, unknown>>;
@@ -79,15 +93,17 @@ export function buildModelConfigurationSchema(
   return {
     type: "object",
     properties: {
-      reasoningEffort: {
-        type: "string",
-        title: "Reasoning Effort",
-        enum: [...REASONING_EFFORTS],
-        enumItemLabels: REASONING_EFFORTS.map(formatEffortLabel),
-        enumDescriptions: REASONING_EFFORTS.map(effortDescription),
-        default: defaultEffort,
-        group: "navigation",
-      },
+      ...(thinkingSwitch ? {
+        reasoningEffort: {
+          type: "string",
+          title: "Reasoning Effort",
+          enum: [...REASONING_EFFORTS],
+          enumItemLabels: REASONING_EFFORTS.map(formatEffortLabel),
+          enumDescriptions: REASONING_EFFORTS.map(effortDescription),
+          default: defaultEffort,
+          group: "navigation",
+        },
+      } : {}),
       ...(contextOptions?.length ? {
         contextSize: {
           type: ["string", "number"],
@@ -109,6 +125,9 @@ export function applyReasoningEffort(
 ): Record<string, unknown> {
   // Poolside-hosted inference offers `max` and `none`: native thinking is
   // enabled by default for `max` and disabled with this request-level switch.
+  // Models without a meaningful switch (see modelSupportsThinkingSwitch) are
+  // requested with no thinking field at all, matching their measured behavior.
+  if (typeof body.model === "string" && !modelSupportsThinkingSwitch(body.model)) return { ...body };
   return {
     ...body,
     chat_template_kwargs: { enable_thinking: effort === "max" },
