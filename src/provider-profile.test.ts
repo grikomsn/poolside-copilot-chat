@@ -1,14 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { qualifiedModelId } from "./provider-profile";
-import { NativeEntries } from "./auth/auth";
+import { providerModelId } from "./provider-profile";
 
-test("entry model IDs stay stable across key rotation and separate equal display names", () => {
-  const entries = new NativeEntries();
-  const first = entries.register({ entryId: "work", name: "Same name", apiKey: "synthetic-first" });
-  const personal = entries.register({ entryId: "personal", name: "Same name", apiKey: "synthetic-personal" });
-  const rotated = entries.register({ entryId: "work", name: "Renamed", apiKey: "synthetic-rotated" });
-  assert.equal(qualifiedModelId(first.entryId, "model"), qualifiedModelId(rotated.entryId, "model"));
-  assert.notEqual(qualifiedModelId(first.entryId, "model"), qualifiedModelId(personal.entryId, "model"));
-  assert.throws(() => qualifiedModelId("", "model"));
+test("model ids are the raw hosted ids without entry qualification", () => {
+  assert.equal(providerModelId("poolside/laguna-xs-2.1"), "poolside/laguna-xs-2.1");
+  assert.equal(providerModelId("model"), "model");
 });

@@ -8,7 +8,7 @@ npm test
 npm run package
 ```
 
-Tests are colocated with the modules they cover under `src/auth/`, `src/models/`, `src/transport/`, and `src/usage/`. `npm test` performs a clean compile and runs native-entry lifecycle and response-ordering, provider-configuration, model-filtering, stream-parser, protocol, and usage tests. `npm run package` validates the project and creates an installable VSIX.
+Tests are colocated with the modules they cover under `src/auth/`, `src/models/`, `src/transport/`, and `src/usage/`. `npm test` performs a clean compile and runs credential provisioning, response-ordering, provider-configuration, model-filtering, stream-parser, protocol, and usage tests. `npm run package` validates the project and creates an installable VSIX.
 
 Install the local build with:
 

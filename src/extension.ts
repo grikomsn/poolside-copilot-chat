@@ -1,15 +1,15 @@
 import * as vscode from "vscode";
 import { registerInlineCompletions } from "./autocomplete";
-import { NativeEntries } from "./auth/auth";
+import { Credentials } from "./auth/auth";
 import { registerCommands } from "./commands/commands";
 import { PoolsideProvider } from "./provider";
 import { extensionUserAgent } from "./transport/protocol";
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("Poolside");
-  const entries = new NativeEntries(context.globalState);
+  const credentials = new Credentials();
   const provider = new PoolsideProvider(
-    entries,
+    credentials,
     output,
     extensionUserAgent(context.extension.packageJSON.version, vscode.version),
   );
@@ -25,7 +25,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.lm.registerLanguageModelChatProvider("poolside", provider),
     ...registerCommands(provider, output),
     registerInlineCompletions(context, {
-      resolveApiKey: async () => provider.getInlineApiKey(vscode.workspace.getConfiguration("poolsideCopilot").get("inlineSuggestionsEntry", "")),
+      resolveApiKey: async () => provider.getInlineApiKey(),
       output,
       version: context.extension.packageJSON.version as string,
       vscodeVersion: vscode.version,

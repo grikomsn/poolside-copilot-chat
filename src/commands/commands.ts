@@ -13,10 +13,6 @@ export function registerCommands(
   output: vscode.OutputChannel,
 ): vscode.Disposable[] {
   return [
-    vscode.commands.registerCommand("poolsideCopilot.selectManagementEntry", () => selectEntry(provider, "managementEntry")),
-    vscode.commands.registerCommand("poolsideCopilot.selectInlineEntry", () => selectEntry(provider, "inlineSuggestionsEntry")),
-    vscode.commands.registerCommand("poolsideCopilot.forgetEntry", () => forgetEntry(provider)),
-    vscode.commands.registerCommand("poolsideCopilot.restoreEntry", () => restoreEntry(provider)),
     vscode.commands.registerCommand("poolsideCopilot.manage", () => manage(provider, output)),
     vscode.commands.registerCommand("poolsideCopilot.refreshModels", () => refreshModels(provider)),
     vscode.commands.registerCommand("poolsideCopilot.setInlineSuggestionsModel", () => setInlineSuggestionsModel()),
@@ -32,59 +28,22 @@ async function manage(
 ): Promise<void> {
   const choices = [
     { label: "$(settings) Manage Language Models", action: "models" },
-    { label: "$(account) Select entry for management", action: "managementEntry" },
-    { label: "$(edit) Select inline suggestions entry", action: "inlineEntry" },
     { label: "$(check) Test Poolside inference", action: "test" },
     { label: "$(refresh) Refresh hosted models", action: "refresh" },
     { label: "$(zap) Set inline suggestions model", action: "inlineModel" },
     { label: "$(link-external) Open Poolside API keys", action: "open" },
     { label: "$(output) Show Poolside logs", action: "logs" },
     { label: "$(info) Show diagnostics", action: "diagnostics" },
-    { label: "$(trash) Forget loaded entry", action: "forget" },
-    { label: "$(history) Restore forgotten entry", action: "restore" },
   ];
-  const picked = await vscode.window.showQuickPick(choices, { title: "Poolside — native provider entries" });
+  const picked = await vscode.window.showQuickPick(choices, { title: "Poolside — provider connection" });
   if (!picked) return;
   if (picked.action === "models") await vscode.commands.executeCommand("workbench.action.chat.manage");
-  else if (picked.action === "managementEntry") await selectEntry(provider, "managementEntry");
   else if (picked.action === "refresh") await refreshModels(provider);
   else if (picked.action === "test") await testConnection(provider, output);
   else if (picked.action === "open") await openApiKeys();
   else if (picked.action === "logs") output.show(true);
   else if (picked.action === "diagnostics") await diagnostics(provider, output);
-  else if (picked.action === "forget") await forgetEntry(provider);
-  else if (picked.action === "restore") await restoreEntry(provider);
-  else if (picked.action === "inlineEntry") await selectEntry(provider, "inlineSuggestionsEntry");
   else if (picked.action === "inlineModel") await setInlineSuggestionsModel();
-}
-
-async function selectEntry(provider: PoolsideProvider, setting: string): Promise<void> {
-  const entries = provider.getEntries();
-  if (!entries.length) {
-    await vscode.commands.executeCommand("workbench.action.chat.manage");
-    void vscode.window.showInformationMessage("Add an entry with a unique entryId, then open its models to load its credential.");
-    return;
-  }
-  const picked = await vscode.window.showQuickPick(entries.map((entry) => ({ label: entry.entryId })), {
-    title: `Poolside — select ${setting}`,
-  });
-  if (picked) await vscode.workspace.getConfiguration("poolsideCopilot").update(setting, picked.label, vscode.ConfigurationTarget.Global);
-}
-
-async function forgetEntry(provider: PoolsideProvider): Promise<void> {
-  const picked = await vscode.window.showQuickPick(provider.getEntries().map((entry) => ({ label: entry.entryId })), {
-    title: "Forget loaded entry",
-    placeHolder: "Block this entry until you explicitly restore it, including after restarting VS Code",
-  });
-  if (picked) await provider.forgetEntry(picked.label);
-}
-
-async function restoreEntry(provider: PoolsideProvider): Promise<void> {
-  const picked = await vscode.window.showQuickPick(provider.getForgottenEntries().map((entryId) => ({ label: entryId })), {
-    title: "Restore forgotten entry",
-    placeHolder: "Allow VS Code to provision the entry again from Manage Language Models",
-  });
-  if (picked) await provider.restoreEntry(picked.label);
 }
 
 async function refreshModels(provider: PoolsideProvider): Promise<void> {
@@ -161,7 +120,6 @@ async function diagnostics(provider: PoolsideProvider, output: vscode.OutputChan
     "",
     `- VS Code: ${vscode.version}`,
     `- API endpoint: ${API_BASE}`,
-    `- Loaded native entries: ${provider.getEntries().length}`,
     `- Default reasoning effort: ${vscode.workspace.getConfiguration("poolsideCopilot").get("reasoningEffort", "max")}`,
     `- Registered models: ${models.length}`,
     "",
