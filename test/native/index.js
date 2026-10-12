@@ -90,7 +90,14 @@ async function run() {
     const rotated = await prepare("synthetic-rotated");
     assert.equal(work.id, rotated.id);
     assert.notEqual(work.credentialRef, rotated.credentialRef);
-    await assert.rejects(provider.provideLanguageModelChatResponse(work, [], options, { report() {} }, source.token), /replaced or removed/);
+    // Provisioning another key does not invalidate a previously provisioned key.
+    await provider.provideLanguageModelChatResponse(work, [], options, { report() {} }, source.token);
+    assert.equal(sent.at(-1).authorization, "Bearer synthetic-work");
+    for (const credentialRef of ["unregistered-handle", "synthetic-work"]) {
+      const count = sent.length;
+      await assert.rejects(provider.provideLanguageModelChatResponse({ ...work, credentialRef }, [], options, { report() {} }, source.token), /replaced or removed/);
+      assert.equal(sent.length, count, "Unregistered and raw-key handles never send a request");
+    }
     assert.equal(provider.getInlineApiKey(), "synthetic-rotated");
     for (const failure of ["eof", "error"]) {
       mode = failure;
@@ -125,6 +132,6 @@ async function run() {
     reporter.report({ toolCalls: [0, 1, 2].map(() => ({ id: "", name: "read", arguments: "{}" })) });
     assert.equal(new Set(missingParts.map((part) => part.callId)).size, 3);
   } finally { source.dispose(); }
-  console.log(JSON.stringify({ provider: "poolside", nativeChecks: "parallel tools, reasoning closure, CRLF, two entries, follow-up, active-key routing, rotation, stale-handle rejection, error, EOF, cancellation, resource cleanup", passed: true }));
+  console.log(JSON.stringify({ provider: "poolside", nativeChecks: "parallel tools, reasoning closure, CRLF, two entries, follow-up, active-key routing, key-scoped handles, unregistered/raw-handle rejection, error, EOF, cancellation, resource cleanup", passed: true }));
 }
 module.exports = { run };
