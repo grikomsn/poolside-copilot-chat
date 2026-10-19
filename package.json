@@ -58,6 +58,10 @@
         "title": "Poolside: Open API Keys"
       },
       {
+        "command": "poolsideCopilot.showUsage",
+        "title": "Poolside: Show Usage"
+      },
+      {
         "command": "poolsideCopilot.diagnostics",
         "title": "Poolside: Show Diagnostics"
       }
@@ -156,6 +160,11 @@
           "type": "boolean",
           "default": false,
           "description": "Log request, stream, usage, and model-discovery metadata to the Poolside output channel. Prompts and API keys are never logged."
+        },
+        "poolsideCopilot.showUsageStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the local Poolside usage token in the status bar. Local records only; the Poolside dashboard remains authoritative."
         }
       }
     },
@@ -187,7 +196,7 @@
     "test": "npm run compile && node --test \"out/**/*.test.js\"",
     "check": "npm test",
     "changeset": "changeset",
-    "version": "changeset version",
+    "version": "changeset version && npm install --package-lock-only --ignore-scripts",
     "release": "npm run check && vsce publish --skip-duplicate",
     "refresh-models": "node scripts/refresh-models.mjs",
     "prepackage": "npm run check",

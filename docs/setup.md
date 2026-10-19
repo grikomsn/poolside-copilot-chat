@@ -27,6 +27,7 @@ Provider-entry model discovery uses `https://inference.poolside.ai/v1/models`, s
 | **Poolside: Refresh Models** | Fetch the current hosted-model list |
 | **Poolside: Test Inference** | Send a small live inference request |
 | **Poolside: Open API Keys** | Open Poolside Platform |
+| **Poolside: Show Usage** | Open the local usage QuickPick (tracked tokens, last request) |
 | **Poolside: Show Diagnostics** | Show the VS Code version, endpoint, and registered models |
 
 ## Settings
@@ -39,6 +40,7 @@ Provider-entry model discovery uses `https://inference.poolside.ai/v1/models`, s
 | `poolsideCopilot.streamIdleTimeoutSeconds` | `120` | Maximum time without streamed response data before aborting |
 | `poolsideCopilot.catalogCacheMinutes` | `5` | How long the hosted-model catalog is reused before refreshing |
 | `poolsideCopilot.debugLogging` | `false` | Log request, stream, usage, and model-discovery metadata to the Poolside output channel |
+| `poolsideCopilot.showUsageStatusBar` | `true` | Show the local Poolside usage token in the status bar |
 | `poolsideCopilot.inlineSuggestions` | `false` | Experimental ghost-text inline completions while typing |
 | `poolsideCopilot.inlineSuggestionsModel` | `poolside/laguna-xs-2.1` | Model used for inline completions; `laguna-s-2.1` is an alternate |
 | `poolsideCopilot.inlineSuggestionsChatInput` | `false` | Also offer suggestions inside the Copilot Chat prompt box |

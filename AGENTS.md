@@ -16,7 +16,8 @@
 - `src/models/options.ts`: reasoning-effort schema, precedence, and Poolside request payload translation.
 - `src/transport/protocol.ts`: fixed endpoints, request identity, and headers.
 - `src/transport/sse.ts`: incremental SSE parsing into text, reasoning, tool-call, and usage events.
-- `src/usage/domain.ts`: provider usage normalization for VS Code.
+- `src/usage/domain.ts`: local usage tracking tokens, snapshots, and QuickPick rows.
+- `src/usage/presentation.ts`: usage status-bar rendering.
 - Tests are colocated as `src/**/*.test.ts`; `out/` and `*.vsix` are generated artifacts.
 
 ## Commands

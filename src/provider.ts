@@ -24,7 +24,7 @@ import {
 } from "./models/options";
 import { ChatCompletionStreamParser, validateStreamCompletion } from "./transport/sse";
 import { POOLSIDE_ENDPOINTS, poolsideHeaders } from "./transport/protocol";
-import { toProviderUsagePayload } from "./usage/domain";
+import { toProviderUsagePayload, recordRequestUsage, type PoolsideUsageSnapshot } from "./usage/domain";
 import { providerModelId } from "./provider-profile";
 import { messageToText } from "./provider/messages";
 import { buildRequest } from "./provider/request";
@@ -40,8 +40,11 @@ export interface PoolsideModel extends vscode.LanguageModelChatInformation {
 export class PoolsideProvider implements vscode.LanguageModelChatProvider<PoolsideModel> {
   private readonly changeEmitter = new vscode.EventEmitter<void>();
   readonly onDidChangeLanguageModelChatInformation = this.changeEmitter.event;
+  readonly onDidChangeUsage: vscode.Event<PoolsideUsageSnapshot>;
+  private readonly usageEmitter: vscode.EventEmitter<PoolsideUsageSnapshot>;
   private readonly catalogs = new Map<string, PoolsideModelMetadata[]>();
   private readonly refreshedAt = new Map<string, number>();
+  private readonly usageByCredential = new Map<string, PoolsideUsageSnapshot>();
 
   private get configuration(): vscode.WorkspaceConfiguration {
     return vscode.workspace.getConfiguration("poolsideCopilot");
@@ -56,7 +59,14 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     private readonly output: vscode.OutputChannel,
     private readonly userAgent: string,
     private readonly fetcher: typeof fetch = fetch,
-  ) {}
+    initialUsage: Readonly<Record<string, PoolsideUsageSnapshot>> = {},
+  ) {
+    this.usageEmitter = new vscode.EventEmitter<PoolsideUsageSnapshot>();
+    this.onDidChangeUsage = this.usageEmitter.event;
+    for (const [reference, snapshot] of Object.entries(initialUsage)) {
+      if (this.credentials.keyForCredential(reference)) this.usageByCredential.set(reference, snapshot);
+    }
+  }
 
   fireDidChange(): void {
     this.changeEmitter.fire();
@@ -325,9 +335,40 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     return poolsideHeaders(apiKey, accept, this.userAgent);
   }
 
-  private reportUsageForModel(usage: Record<string, unknown>, _model: PoolsideModel): void {
+  /** Usage snapshot for one credential reference. */
+  getUsageSnapshot(credentialRef = this.activeCredentialRef()): PoolsideUsageSnapshot {
+    return this.usageByCredential.get(credentialRef ?? "") ?? { credentialRef };
+  }
+
+  /** Iterates all tracked snapshots for persistence. */
+  usageEntries(): Iterable<[string, PoolsideUsageSnapshot]> {
+    return this.usageByCredential.entries();
+  }
+
+  /** Usage snapshot shown in the status bar. */
+  getSelectedUsageSnapshot(): PoolsideUsageSnapshot {
+    return this.getUsageSnapshot();
+  }
+
+  /** Clears tracked usage for every credential. */
+  clearUsage(): void {
+    const active = this.activeCredentialRef();
+    this.usageByCredential.clear();
+    this.usageEmitter.fire(this.getSelectedUsageSnapshot());
+    void active;
+  }
+
+  private activeCredentialRef(): string | undefined {
+    return this.credentials.activeCredentialRef();
+  }
+
+  private reportUsageForModel(usage: Record<string, unknown>, model: PoolsideModel): void {
+    if (!this.credentials.keyForCredential(model.credentialRef)) return;
+    const next = recordRequestUsage(this.getUsageSnapshot(model.credentialRef), usage, model.rawModelId);
     if (this.debugLogging) {
-      this.output.appendLine(`[usage] ${JSON.stringify(toProviderUsagePayload(usage))}`);
+      this.output.appendLine(`[usage] model=${model.rawModelId} recorded`);
     }
+    this.usageByCredential.set(model.credentialRef, next);
+    if (model.credentialRef === this.activeCredentialRef()) this.usageEmitter.fire(next);
   }
 }
