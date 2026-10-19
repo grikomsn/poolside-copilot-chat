@@ -46,4 +46,9 @@ export class Credentials {
     }
     return active?.apiKey;
   }
+
+  /** Credential reference of {@link activeApiKey}; undefined when no key is provisioned. */
+  activeCredentialRef(): string | undefined {
+    return this.activeApiKey() === undefined ? undefined : credentialReference(this.activeApiKey()!);
+  }
 }

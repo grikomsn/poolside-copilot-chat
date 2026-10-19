@@ -5,12 +5,15 @@ import { CONFIG_SECTION, DEFAULT_INLINE_MODEL, INLINE_SUGGESTIONS_MODEL_SETTING 
 import { inlineModelChoices } from "../autocomplete/models";
 import { messageOf } from "../errors";
 import { API_BASE, PoolsideProvider } from "../provider";
+import { formatUsageRows } from "../usage/domain";
+import { type UsageQuickPickItem } from "../usage/presentation";
 
 const API_KEYS_URL = "https://platform.poolside.ai/";
 
 export function registerCommands(
   provider: PoolsideProvider,
   output: vscode.OutputChannel,
+  usageStatus?: vscode.StatusBarItem,
 ): vscode.Disposable[] {
   return [
     vscode.commands.registerCommand("poolsideCopilot.manage", () => manage(provider, output)),
@@ -18,8 +21,33 @@ export function registerCommands(
     vscode.commands.registerCommand("poolsideCopilot.setInlineSuggestionsModel", () => setInlineSuggestionsModel()),
     vscode.commands.registerCommand("poolsideCopilot.testConnection", () => testConnection(provider, output)),
     vscode.commands.registerCommand("poolsideCopilot.openApiKeys", () => openApiKeys()),
+    vscode.commands.registerCommand("poolsideCopilot.showUsage", () => showUsage(provider)),
     vscode.commands.registerCommand("poolsideCopilot.diagnostics", () => diagnostics(provider, output)),
+    ...(usageStatus ? [] : []),
   ];
+}
+
+/** Unified usage QuickPick; mirrors the sibling showUsage menu. */
+async function showUsage(provider: PoolsideProvider): Promise<void> {
+  const snapshot = provider.getSelectedUsageSnapshot();
+  const rows: UsageQuickPickItem[] = formatUsageRows(snapshot).map((row) => ({
+    label: row.label,
+    description: row.description,
+    detail: row.detail,
+    action: undefined,
+  }));
+  const actions: UsageQuickPickItem[] = [
+    { label: "", kind: vscode.QuickPickItemKind.Separator },
+    { label: "$(refresh) Refresh hosted models", action: "refresh" },
+    { label: "$(link-external) Open Poolside API keys", action: "openApiKeys" },
+  ];
+  const picked = await vscode.window.showQuickPick<UsageQuickPickItem>(
+    [...rows, ...actions],
+    { title: "Poolside — usage & settings" },
+  );
+  if (!picked?.action) return;
+  if (picked.action === "refresh") await refreshModels(provider);
+  else if (picked.action === "openApiKeys") await openApiKeys();
 }
 
 async function manage(
