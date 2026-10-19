@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0
+
+### Minor Changes
+
+- 61e2226: Add local usage tracking to the status bar and a unified usage QuickPick. Tracked
+  tokens persist per provider entry in VS Code global state; the Poolside dashboard
+  remains authoritative.
+
 ## 2.0.1
 
 ### Patch Changes
