@@ -50,6 +50,8 @@ Entries need only an API key. The name you give an entry in **Manage Language Mo
 
 Recreate existing entries in **Manage Language Models** with the new single-field flow: each entry now needs only a name and its API key — explicit entry IDs, selection commands, and forgotten-entry blocks no longer exist. Select your Laguna models again after re-adding entries; deleting an entry removes its VS Code-owned credential.
 
+Context token counts are estimates. Tool-result text, tool arguments, thinking, and image inputs are included in context budgeting. If the service rejects a full context window, run `/compact` in Copilot Chat, reduce attachments or tool output, or start a new chat.
+
 ## Documentation
 
 - [Setup, settings, and troubleshooting](https://github.com/grikomsn/poolside-copilot-chat/blob/main/docs/setup.md)
