@@ -26,6 +26,7 @@ import {
 } from "./models/options";
 import { ChatCompletionStreamParser, validateStreamCompletion } from "./transport/sse";
 import { POOLSIDE_ENDPOINTS, poolsideHeaders } from "./transport/protocol";
+import { isTransientNetworkError, isTransientServerError, retryDelayMs } from "./provider/retry";
 import { toProviderUsagePayload, recordRequestUsage, type PoolsideUsageSnapshot } from "./usage/domain";
 import { providerModelId } from "./provider-profile";
 import { messageToText } from "./provider/messages";
@@ -201,7 +202,7 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
       if (this.debugLogging) {
         this.output.appendLine(`[request] model=${model.rawModelId} effort=${reasoningEffort} initiator=${options.requestInitiator ?? "unknown"}`);
       }
-      const response = await this.fetcher(POOLSIDE_ENDPOINTS.chat, {
+      const response = await this.fetchWithRetry(POOLSIDE_ENDPOINTS.chat, {
         method: "POST",
         headers: this.requestHeaders(apiKey, "text/event-stream"),
         body: JSON.stringify(requestBody),
@@ -271,7 +272,7 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
       undefined,
       this.configuration.get("reasoningEffort", DEFAULT_REASONING_EFFORT),
     );
-    const response = await this.fetcher(POOLSIDE_ENDPOINTS.chat, {
+    const response = await this.fetchWithRetry(POOLSIDE_ENDPOINTS.chat, {
       method: "POST",
       headers: this.requestHeaders(apiKey, "application/json"),
       signal: AbortSignal.timeout(60_000),
@@ -289,7 +290,7 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
 
   private async fetchModels(apiKey: string): Promise<PoolsideModelMetadata[]> {
     if (!apiKey) throw new Error("Poolside API key is not configured");
-    const response = await this.fetcher(POOLSIDE_ENDPOINTS.models, {
+    const response = await this.fetchWithRetry(POOLSIDE_ENDPOINTS.models, {
       headers: this.requestHeaders(apiKey, "application/json, application/problem+json"),
       signal: AbortSignal.timeout(30_000),
     });
@@ -336,6 +337,25 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     return poolsideHeaders(apiKey, accept, this.userAgent);
   }
 
+  /** Pre-stream retry loop: transient HTTP statuses and network failures only. */
+  private async fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        const response = await this.fetcher(url, init);
+        if (attempt >= 2 || !isTransientServerError(response.status)) return response;
+        const delay = retryDelayMs(attempt, response.headers.get("retry-after"));
+        this.output.appendLine(`[retry] transient HTTP ${response.status}; attempt=${attempt + 2} delayMs=${delay}`);
+        await response.body?.cancel().catch(() => undefined);
+        await waitForRetry(delay, init.signal);
+      } catch (error) {
+        if (attempt >= 2 || !isTransientNetworkError(error)) throw error;
+        const delay = retryDelayMs(attempt);
+        this.output.appendLine(`[retry] transient network failure; attempt=${attempt + 2} delayMs=${delay}`);
+        await waitForRetry(delay, init.signal);
+      }
+    }
+  }
+
   /** Usage snapshot for one credential reference. */
   getUsageSnapshot(credentialRef = this.activeCredentialRef()): PoolsideUsageSnapshot {
     return this.usageByCredential.get(credentialRef ?? "") ?? { credentialRef };
@@ -372,4 +392,19 @@ export class PoolsideProvider implements vscode.LanguageModelChatProvider<Poolsi
     this.usageByCredential.set(model.credentialRef, next);
     if (model.credentialRef === this.activeCredentialRef()) this.usageEmitter.fire(next);
   }
+}
+
+async function waitForRetry(milliseconds: number, signal: AbortSignal | null | undefined): Promise<void> {
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, milliseconds);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(new DOMException("Aborted", "AbortError"));
+      },
+      { once: true },
+    );
+  });
 }
