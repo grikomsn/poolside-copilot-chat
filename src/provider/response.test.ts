@@ -21,7 +21,8 @@ test("mixed reasoning, text and parallel tools keep conversation order", () => {
     { id: "first", name: "read", arguments: '{"file":"a"}' }, { id: "second", name: "read", arguments: '{"file":"b"}' },
   ] });
   reporter.finish();
-  assert.deepEqual(parts, [new ThinkingPart("Reasoning"), new ThinkingPart("", "", { vscode_reasoning_done: true }),
+  assert.deepEqual(parts, [new ThinkingPart("Reasoning", "poolside-thinking-request"),
+    new ThinkingPart("", "poolside-thinking-request", { vscode_reasoning_done: true }),
     new TextPart("Answer"), new ToolPart("first", "read", { file: "a" }), new ToolPart("second", "read", { file: "b" })]);
 });
 
