@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1.3
+
+### Patch Changes
+
+- 91e5c2d: Keep streamed reasoning in one thinking bubble when usage arrives mid-stream
+
+  Copilot Chat merges a provider's thinking deltas only while the previous
+  reported part is also thinking, so interleaved usage data parts split
+  reasoning into one "Thought" bubble per delta and made long reasoning
+  appear cut off. Usage data parts are now held back while a thinking
+  segment is open and flushed when the segment closes.
+
 ## 2.1.2
 
 ### Patch Changes
