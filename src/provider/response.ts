@@ -11,6 +11,8 @@ export type ResponsePartConstructors = Pick<typeof vscode,
 export class StreamResponseReporter {
   private thinkingOpen = false;
   private toolIndex = 0;
+  /** Usage events held back while a thinking segment is open, flushed on close. */
+  private pendingUsage: Record<string, unknown>[] = [];
 
   constructor(
     private readonly progress: vscode.Progress<vscode.LanguageModelResponsePart2>,
@@ -24,7 +26,7 @@ export class StreamResponseReporter {
       this.progress.report(new this.parts.LanguageModelThinkingPart(event.reasoning));
       this.thinkingOpen = true;
     }
-    if (event.text || event.toolCalls?.length || event.done || event.finishReason) this.finish();
+    if (event.text || event.toolCalls?.length || event.done || event.finishReason) this.flushThinking();
     if (event.text) this.progress.report(new this.parts.LanguageModelTextPart(event.text));
     for (const tool of event.toolCalls ?? []) {
       this.progress.report(new this.parts.LanguageModelToolCallPart(
@@ -35,17 +37,29 @@ export class StreamResponseReporter {
     }
     if (event.usage) {
       this.onUsage(event.usage);
-      this.progress.report(new this.parts.LanguageModelDataPart(
-        new TextEncoder().encode(JSON.stringify(toProviderUsagePayload(event.usage))), "usage",
-      ));
+      // Copilot Chat only merges reasoning deltas while the previous reported
+      // part is also thinking; hold usage data parts until the segment closes.
+      if (this.thinkingOpen) this.pendingUsage.push(event.usage);
+      else this.reportUsage(event.usage);
     }
   }
 
   finish(): void {
+    this.flushThinking();
+  }
+
+  private flushThinking(): void {
     if (!this.thinkingOpen) return;
+    this.thinkingOpen = false;
     const ThinkingPart = this.parts.LanguageModelThinkingPart;
     if (ThinkingPart) this.progress.report(new ThinkingPart("", "", { vscode_reasoning_done: true }));
-    this.thinkingOpen = false;
+    for (const usage of this.pendingUsage.splice(0)) this.reportUsage(usage);
+  }
+
+  private reportUsage(usage: Record<string, unknown>): void {
+    this.progress.report(new this.parts.LanguageModelDataPart(
+      new TextEncoder().encode(JSON.stringify(toProviderUsagePayload(usage))), "usage",
+    ));
   }
 }
 
