@@ -1,5 +1,8 @@
 # Setup and usage
 
+> [!WARNING]
+> Poolside Platform inference shut down on 31 October 2026. The steps below are kept for historical reference; API keys are no longer accepted and no requests can succeed. See the repository README for self-hosting the open-weight Laguna models.
+
 ## Requirements
 
 - Visual Studio Code 1.125 or newer

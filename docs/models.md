@@ -1,6 +1,9 @@
 # Models
 
-The extension discovers hosted-Poolside Laguna models from
+> [!WARNING]
+> The hosted catalog is gone: Poolside Platform inference shut down on 31 October 2026, so live discovery and inference are unavailable. The weights remain downloadable from [Hugging Face](https://huggingface.co/poolside) for self-hosting.
+
+The extension discovered hosted-Poolside Laguna models from
 `https://inference.poolside.ai/v1/models`. Each model entry carries its own
 context window and maximum output length, which are surfaced in the Copilot
 Chat model picker.
@@ -11,7 +14,7 @@ authoritative whenever available.
 
 ## Models
 
-The hosted catalog currently exposes two Laguna models:
+The hosted catalog last exposed two Laguna models:
 
 - **`poolside/laguna-s-2.1`** — the capable reasoning model (256K-token
   context as served by the hosted API).
@@ -20,8 +23,8 @@ The hosted catalog currently exposes two Laguna models:
 
 Both models advertise 32K max completion tokens in the hosted catalog.
 
-See the [Poolside Platform](https://platform.poolside.ai) for the current
-catalog.
+See the [Poolside Platform](https://platform.poolside.ai) for the historical
+catalog; the service is shut down.
 
 ## Reasoning efforts
 

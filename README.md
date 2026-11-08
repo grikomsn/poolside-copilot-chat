@@ -4,7 +4,8 @@
 
 <h1 align="center">Poolside for GitHub Copilot Chat</h1>
 
-<p align="center">Use hosted Poolside coding models directly from the GitHub Copilot Chat model picker in Visual Studio Code.</p>
+> [!WARNING]
+> **This extension no longer works.** Poolside Platform inference shut down on 31 October 2026. The hosted models remain available as open weights on [Hugging Face](https://huggingface.co/poolside) for self-hosting; this repository is archived and no longer maintained.
 
 <p align="center">
   <a href="https://marketplace.visualstudio.com/items?itemName=grikomsn.poolside-copilot-chat"><img src="https://img.shields.io/visual-studio-marketplace/v/grikomsn.poolside-copilot-chat?style=flat-square&logo=visualstudiocode&label=Marketplace" alt="Visual Studio Marketplace version"></a>
@@ -13,9 +14,9 @@
   <a href="https://github.com/grikomsn/poolside-copilot-chat/blob/main/LICENSE"><img src="https://img.shields.io/github/license/grikomsn/poolside-copilot-chat?style=flat-square" alt="MIT license"></a>
 </p>
 
-This extension is a native VS Code `LanguageModelChatProvider`. It validates a user-supplied Poolside Platform API key, discovers the hosted models available to that key, and streams responses from `inference.poolside.ai` into Copilot Chat without a local proxy.
+This extension was a native VS Code `LanguageModelChatProvider`. It validated a user-supplied Poolside Platform API key, discovered the hosted models available to that key, and streamed responses from `inference.poolside.ai` into Copilot Chat without a local proxy.
 
-## Highlights
+## Highlights (historical)
 
 - Direct, first-class Poolside Platform integration
 - Credentials managed by VS Code native secret provider configuration
@@ -27,16 +28,24 @@ This extension is a native VS Code `LanguageModelChatProvider`. It validates a u
 - Native VS Code context-window accounting from Poolside usage data
 - No proxy, bundled server, or third-party relay
 
-## Quick start
+## What happened
 
-1. Install [Poolside for GitHub Copilot Chat](https://marketplace.visualstudio.com/items?itemName=grikomsn.poolside-copilot-chat). You need VS Code 1.125 or newer and GitHub Copilot Chat.
-2. Create a developer API key in [Poolside Platform](https://platform.poolside.ai/).
-3. Open Copilot Chat, select **Manage Models**, add a **Poolside** provider entry, name it (for example `work`), and enter your API key. VS Code stores the provider credential securely and Poolside model discovery checks it when loading models.
-4. Choose an available Laguna model.
+On 2026-10-31 Poolside shut down hosted inference on the Poolside Platform (`platform.poolside.ai` / `inference.poolside.ai`). API keys are no longer accepted, model discovery returns nothing, and every inference request fails. The extension is archived here for reference and for anyone self-hosting Laguna models against a compatible endpoint.
+
+If you want to keep using Laguna models, download the open weights from [Hugging Face](https://huggingface.co/poolside) and host them yourself; the extension's conversion and streaming code may be a useful reference for a compatible endpoint.
+
+## Quick start (historical)
+
+1. ~~Install [Poolside for GitHub Copilot Chat](https://marketplace.visualstudio.com/items?itemName=grikomsn.poolside-copilot-chat). You need VS Code 1.125 or newer and GitHub Copilot Chat.~~
+2. ~~Create a developer API key in [Poolside Platform](https://platform.poolside.ai/).~~
+3. ~~Open Copilot Chat, select **Manage Models**, add a **Poolside** provider entry, name it (for example `work`), and enter your API key.~~
+4. ~~Choose an available Laguna model.~~
+
+These steps no longer work; Poolside Platform is shut down.
 
 To use more than one Poolside account or API key, add another **Poolside** entry in **Manage Language Models** with a different name and its API key. Each entry's models appear as their own group in the model picker; rename an entry any time without affecting stored keys.
 
-Use **Poolside: Manage Connection** to test the connection, refresh hosted models, set the inline suggestions model, inspect logs, or open diagnostics.
+Use **Poolside: Manage Connection** to test the connection, refresh hosted models, set the inline suggestions model, inspect logs, or open diagnostics. These commands now fail against the shut-down service.
 
 Choose **Max** or **None** from the thinking control in Copilot Chat. Poolside-hosted inference defaults to **Max**; the selection applies to that request and overrides the `poolsideCopilot.reasoningEffort` workspace default.
 
@@ -66,4 +75,4 @@ Context token counts are estimates. Tool-result text, tool arguments, thinking, 
 - [Ollama Cloud for GitHub Copilot Chat](https://github.com/grikomsn/ollama-cloud-copilot-chat) — Use Ollama Cloud models with native thinking and tool support.
 - [OpenCode for GitHub Copilot Chat](https://github.com/grikomsn/opencode-copilot-chat) — Use OpenCode Zen, Go, and Console models from the model picker.
 
-Unofficial project; not affiliated with Poolside, GitHub, or Microsoft. Poolside account limits and charges still apply. Licensed under [MIT](LICENSE).
+Unofficial project; not affiliated with Poolside, GitHub, or Microsoft. Poolside account limits and charges no longer apply — the service is shut down. Licensed under [MIT](LICENSE).

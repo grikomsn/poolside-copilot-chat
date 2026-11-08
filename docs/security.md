@@ -1,5 +1,8 @@
 # API key and security
 
+> [!WARNING]
+> Poolside Platform inference shut down on 31 October 2026. The endpoints below no longer accept requests. The security model is kept for historical reference and for anyone reusing this code against a self-hosted endpoint.
+
 ## Credential storage
 
 All API keys belong to native entries in **Manage Language Models** and are supplied through VS Code's secret provider configuration. The extension holds provisioned keys in memory only; it does not read or write a command-managed key or mirror secrets into workspace settings, files, logs, or global state.
